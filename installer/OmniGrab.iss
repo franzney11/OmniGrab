@@ -10,6 +10,7 @@ AppId={{B5B9F45B-BA2C-4D54-9E87-4B6B8A8A5C21}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
+SetupIconFile=..\omnigrab-icon.ico
 DefaultDirName={autopf}\OmniGrab
 DefaultGroupName=OmniGrab
 OutputDir=..\Output
@@ -25,8 +26,8 @@ WizardStyle=modern
 Source: "..\dist\OmniGrab\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\OmniGrab"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\OmniGrab"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autoprograms}\OmniGrab"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\OmniGrab"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Abrir OmniGrab"; Flags: nowait postinstall skipifsilent

@@ -26,6 +26,8 @@ jobs:
         run: >-
           pyinstaller --noconfirm --clean --windowed --onedir
           --name OmniGrab
+          --icon "omnigrab-icon.ico"
+          --add-data "omnigrab-icon.png;."
           --collect-all yt_dlp
           --collect-all imageio_ffmpeg
           --collect-all webview
