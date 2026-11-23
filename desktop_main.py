@@ -22,6 +22,17 @@ def free_port() -> int:
         return int(sock.getsockname()[1])
 
 
+class DesktopAPI:
+    def choose_folder(self) -> str | None:
+        if not webview.windows:
+            return None
+        result = webview.windows[0].create_file_dialog(
+            webview.FOLDER_DIALOG,
+            directory=str(Path.home()),
+        )
+        return str(result[0]) if result else None
+
+
 def main() -> None:
     port = free_port()
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", access_log=False)
@@ -47,6 +58,7 @@ def main() -> None:
     window = webview.create_window(
         "OmniGrab", url, width=1120, height=820, min_size=(860, 620),
         background_color="#09090b",
+        js_api=DesktopAPI(),
     )
     window.events.closed += lambda: setattr(server, "should_exit", True)
     webview.start(gui="edgechromium", debug=False)

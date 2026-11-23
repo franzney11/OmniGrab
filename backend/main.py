@@ -92,6 +92,48 @@ PAYMENT_PROVIDER: PaymentProvider = MockProvider()
 
 CREDITS_FILE = DATA / "credits.json"
 _credits_lock = threading.Lock()
+SETTINGS_FILE = DATA / "settings.json"
+_settings_lock = threading.Lock()
+
+
+def get_default_output_dir() -> Path:
+    configured = os.environ.get("OMNIGRAB_OUT")
+    if configured:
+        return Path(configured).expanduser()
+    with _settings_lock:
+        try:
+            value = json.loads(SETTINGS_FILE.read_text(encoding="utf-8")).get("default_output_dir")
+            return Path(value).expanduser() if value else OUTPUT
+        except Exception:
+            return OUTPUT
+
+
+def set_default_output_dir(folder: str) -> Path:
+    if not folder.strip():
+        raise HTTPException(400, "La carpeta no puede estar vacía.")
+    path = Path(folder).expanduser().resolve()
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise HTTPException(400, f"No se pudo crear la carpeta: {e}") from e
+    if not path.is_dir():
+        raise HTTPException(400, "La ruta seleccionada no es una carpeta.")
+    with _settings_lock:
+        SETTINGS_FILE.write_text(json.dumps({"default_output_dir": str(path)}), encoding="utf-8")
+    return path
+
+
+def resolve_output_dir(folder: str | None) -> Path:
+    if folder:
+        path = Path(folder).expanduser().resolve()
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            raise HTTPException(400, f"No se pudo crear la carpeta: {e}") from e
+        if not path.is_dir():
+            raise HTTPException(400, "La ruta seleccionada no es una carpeta.")
+        return path
+    return get_default_output_dir()
 
 
 def _credits_read() -> int:
@@ -346,12 +388,12 @@ def strip_audio(src: Path, dst: Path):
         raise RuntimeError("FFmpeg falló al quitar el audio.")
 
 
-def run_job(job_id: str, meta: dict, height: int, mode: str, upscale: bool, bitrate: int = 192):
+def run_job(job_id: str, meta: dict, height: int, mode: str, upscale: bool, bitrate: int = 192, output_dir: Path | None = None):
     with _slots:  # si ya hay dos en marcha, esta espera en estado 'En cola'
-        _run_job(job_id, meta, height, mode, upscale, bitrate)
+        _run_job(job_id, meta, height, mode, upscale, bitrate, output_dir)
 
 
-def _run_job(job_id: str, meta: dict, height: int, mode: str, upscale: bool, bitrate: int = 192):
+def _run_job(job_id: str, meta: dict, height: int, mode: str, upscale: bool, bitrate: int = 192, output_dir: Path | None = None):
     job = jobs[job_id]
     try:
         def hook(d):
@@ -429,8 +471,9 @@ def _run_job(job_id: str, meta: dict, height: int, mode: str, upscale: bool, bit
             suffix = f" [{height}p{' sin audio' if mode == 'video_only' else ''}]"
         else:
             suffix = " [sin audio]" if mode == "video_only" else ""
-        OUTPUT.mkdir(parents=True, exist_ok=True)
-        dest = unique_path(OUTPUT / f"{safe}{suffix}{final.suffix}")
+        destination = output_dir or get_default_output_dir()
+        destination.mkdir(parents=True, exist_ok=True)
+        dest = unique_path(destination / f"{safe}{suffix}{final.suffix}")
         shutil.move(str(final), dest)
         job.update(stage="done", progress=100, path=str(dest), filename=dest.name)
     except Exception as e:  # noqa: BLE001
@@ -461,6 +504,11 @@ class DownloadIn(BaseModel):
     height: int = 0
     mode: str = "video_audio"  # video_audio | video_only | audio_only
     audio_bitrate: int = 192   # solo para audio_only: 128 | 192 | 256 | 320
+    output_dir: str | None = None
+
+
+class FolderSettingsIn(BaseModel):
+    default_output_dir: str
 
 
 class CheckoutIn(BaseModel):
@@ -499,6 +547,7 @@ async def download(body: DownloadIn):
         raise HTTPException(400, "Bitrate no soportado.")
     url = validate_url(body.url)
     meta = await asyncio.to_thread(probe, url)
+    output_dir = resolve_output_dir(body.output_dir)
 
     req = (body.mode, body.height, body.audio_bitrate)
     # Solo una descarga activa por enlace: evita que se puedan iniciar varias
@@ -517,9 +566,10 @@ async def download(body: DownloadIn):
     jobs[job_id] = {"id": job_id, "url": url, "req": req, "created": time.time(),
                     "title": meta["title"], "label": describe(body.mode, body.height, body.audio_bitrate, upscale),
                     "stage": "queued", "progress": 0, "speed": "", "eta": "", "message": "", "filename": "",
-                    "path": "", "upscale": upscale, "done_bytes": 0, "total_bytes": 0}
+                    "path": "", "upscale": upscale, "done_bytes": 0, "total_bytes": 0,
+                    "output_dir": str(output_dir)}
     threading.Thread(
-        target=run_job, args=(job_id, meta, body.height, body.mode, upscale, body.audio_bitrate), daemon=True
+        target=run_job, args=(job_id, meta, body.height, body.mode, upscale, body.audio_bitrate, output_dir), daemon=True
     ).start()
     return {"job_id": job_id, "upscale": upscale, "credits": credits_get()}
 
@@ -545,7 +595,7 @@ async def progress(job_id: str):
 
 
 JOB_FIELDS = ("id", "url", "title", "label", "stage", "progress", "speed", "eta", "message",
-              "filename", "upscale", "done_bytes", "total_bytes", "created")
+              "filename", "upscale", "done_bytes", "total_bytes", "created", "output_dir")
 
 
 @app.get("/api/jobs")
@@ -563,6 +613,17 @@ def open_folder(job_id: str):
     path = Path(job["path"]) if job.get("path") else None
     reveal(path if path and path.exists() else None)
     return {"ok": True}
+
+
+@app.get("/api/settings/folders")
+def get_folder_settings():
+    return {"default_output_dir": str(get_default_output_dir())}
+
+
+@app.post("/api/settings/folders")
+def set_folder_settings(body: FolderSettingsIn):
+    path = set_default_output_dir(body.default_output_dir)
+    return {"default_output_dir": str(path)}
 
 
 @app.get("/api/credits")

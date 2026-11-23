@@ -86,6 +86,19 @@
 
   <!-- Pestaña Descargas -->
   <section id="view-downloads" class="hidden mt-6">
+    <div class="glass rounded-xl p-4 mb-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-sm font-medium">Carpeta de descargas</p>
+          <p id="downloadFolder" class="text-xs text-zinc-500 truncate mt-1"></p>
+        </div>
+        <div class="flex gap-2">
+          <button id="chooseFolderBtn" class="text-xs rounded-lg border border-zinc-700 px-3 py-2 hover:border-indigo-400 transition">📂 Elegir carpeta</button>
+          <button id="setDefaultFolderBtn" class="text-xs rounded-lg border border-emerald-700 px-3 py-2 text-emerald-300 hover:border-emerald-400 transition">📌 Descargar siempre aquí</button>
+        </div>
+      </div>
+      <p id="folderNote" class="hidden text-xs text-emerald-400 mt-3"></p>
+    </div>
     <div id="dlList" class="space-y-3"></div>
   </section>
 </main>
@@ -118,6 +131,7 @@ const STAGE_COLOR = { queued: "text-zinc-400", downloading: "text-indigo-300", p
 const BITRATE_LABELS = { 128: "Estándar / Ligero", 192: "Alta calidad", 256: "Muy alta", 320: "Máxima calidad" };
 
 let meta = null, sel = null, credits = 0, view = "video", chosenPack = "pack_5";
+let manualDownloadFolder = null;
 let lockJobId = null, lockUrl = null;   // bloqueo en memoria (no se guarda nada en disco ni en el navegador)
 let jobsCache = [];
 
@@ -238,10 +252,18 @@ $("goBtn").addEventListener("click", () => {
 async function startDownload() {
   showErr(""); showOk("");
   try {
-    const r = await api("/api/download", { url: meta.url, mode: sel.mode, height: sel.height || 0, audio_bitrate: sel.bitrate || 192 });
+    const r = await api("/api/download", {
+      url: meta.url,
+      mode: sel.mode,
+      height: sel.height || 0,
+      audio_bitrate: sel.bitrate || 192,
+      output_dir: manualDownloadFolder || null,
+    });
     setCredits(r.credits);
     lockJobId = r.job_id; lockUrl = meta.url;
     sel = null;
+    manualDownloadFolder = null;
+    loadFolderSettings();
     poll();
   } catch (err) {
     if (err.status === 402) openModal();
@@ -321,13 +343,59 @@ async function poll() {
     const j = jobsCache.find((x) => x.id === lockJobId);
     if (!j || j.stage === "done" || j.stage === "error") {
       if (j && j.stage === "error") showErr("Error: " + j.message);
-      if (j && j.stage === "done") showOk("✔ Descarga completada: " + j.filename + " (en tu carpeta OmniGrab)");
+      if (j && j.stage === "done") showOk("✔ Descarga completada: " + j.filename + " (guardada en " + (j.output_dir || "la carpeta configurada") + ")");
       lockJobId = null; lockUrl = null;
       api("/api/credits").then((c) => setCredits(c.credits)).catch(() => {});
     }
   }
   refreshLock();
 }
+
+async function loadFolderSettings() {
+  try {
+    const s = await api("/api/settings/folders");
+    $("downloadFolder").textContent = s.default_output_dir;
+  } catch (_) {
+    $("downloadFolder").textContent = "Descargas\\OmniGrab";
+  }
+}
+
+async function chooseDownloadFolder() {
+  try {
+    let folder = null;
+    if (window.pywebview?.api?.choose_folder) {
+      folder = await window.pywebview.api.choose_folder();
+    }
+    if (!folder) return;
+    manualDownloadFolder = folder;
+    $("downloadFolder").textContent = folder;
+    $("folderNote").textContent = "Esta carpeta se usará en la próxima descarga.";
+    $("folderNote").classList.remove("hidden");
+  } catch (err) {
+    showErr("No se pudo abrir el selector de carpetas.");
+  }
+}
+
+async function setDefaultDownloadFolder() {
+  let folder = manualDownloadFolder;
+  if (!folder) {
+    await chooseDownloadFolder();
+    folder = manualDownloadFolder;
+  }
+  if (!folder) return;
+  try {
+    const s = await api("/api/settings/folders", { default_output_dir: folder });
+    manualDownloadFolder = null;
+    $("downloadFolder").textContent = s.default_output_dir;
+    $("folderNote").textContent = "Esta carpeta se guardó como predeterminada.";
+    $("folderNote").classList.remove("hidden");
+  } catch (err) {
+    showErr(err.message);
+  }
+}
+
+$("chooseFolderBtn").addEventListener("click", chooseDownloadFolder);
+$("setDefaultFolderBtn").addEventListener("click", setDefaultDownloadFolder);
 setInterval(poll, 800);
 
 /* ---------- Modal de pago (simulado) ---------- */
@@ -354,6 +422,7 @@ $("payBtn").addEventListener("click", async () => {
 
 setView("video");
 poll();
+loadFolderSettings();
 api("/api/credits").then((c) => setCredits(c.credits)).catch(() => {});
 </script>
 </body>

@@ -102,6 +102,14 @@ Compiled releases are available in GitHub Releases. Source builds should use Git
 
 The download queue exists only while the application is running.
 
+## Download Folder
+
+Open the **Downloads** tab to choose a destination folder.
+
+- **Elegir carpeta** selects the destination for the next download only.
+- **Descargar siempre aquí** saves the selected folder as the persistent default.
+- Without a configured default, OmniGrab uses `Downloads\OmniGrab`.
+
 ## API
 
 - `POST /api/analyze` - Analyze a URL.
