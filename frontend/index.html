@@ -472,7 +472,9 @@ async function pollUpdateStatus() {
       $("updateStatus").classList.remove("hidden");
       clearInterval(updateStatusTimer);
       updateStatusTimer = null;
-      if (window.pywebview?.api?.close_window) window.pywebview.api.close_window();
+      if (updateInfo?.portable && window.pywebview?.api?.close_window) {
+        window.pywebview.api.close_window();
+      }
     }
   } catch (_) {}
 }

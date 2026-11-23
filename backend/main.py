@@ -627,7 +627,16 @@ def launch_portable_update(package: Path) -> None:
     backup = app_dir.parent / f"{app_dir.name}-backup-{uuid.uuid4().hex}"
     script.write_text(
         "@echo off\r\n"
-        "timeout /t 4 /nobreak >nul\r\n"
+        f'set "parent_pid={os.getpid()}"\r\n'
+        "set attempt=0\r\n"
+        ":WAITOLD\r\n"
+        'tasklist /FI "PID eq %parent_pid%" /NH 2>nul | find /I "OmniGrab.exe" >nul\r\n'
+        "if errorlevel 1 goto READYOLD\r\n"
+        "set /a attempt+=1\r\n"
+        "if %attempt% GEQ 30 exit /b 9\r\n"
+        "timeout /t 1 /nobreak >nul\r\n"
+        "goto WAITOLD\r\n"
+        ":READYOLD\r\n"
         "set attempt=0\r\n"
         ":MOVEOLD\r\n"
         f'move /Y "{app_dir}" "{backup}" >nul 2>&1\r\n'
