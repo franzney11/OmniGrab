@@ -632,26 +632,13 @@ def launch_portable_update(package: Path) -> None:
         "timeout /t 1 /nobreak >nul\r\n"
         "goto WAITOLD\r\n"
         ":READYOLD\r\n"
-        "set attempt=0\r\n"
-        ":MOVEOLD\r\n"
-        f'move /Y "{app_dir}" "{backup}" >nul 2>&1\r\n'
-        "if not errorlevel 1 goto MOVENEW\r\n"
-        "set /a attempt+=1\r\n"
-        "if %attempt% GEQ 12 exit /b 10\r\n"
-        "timeout /t 1 /nobreak >nul\r\n"
-        "goto MOVEOLD\r\n"
-        "set attempt=0\r\n"
-        ":MOVENEW\r\n"
-        f'move /Y "{source_dir}" "{app_dir}" >nul 2>&1\r\n'
-        "if not errorlevel 1 goto STARTNEW\r\n"
-        "set /a attempt+=1\r\n"
-        "if %attempt% GEQ 12 (\r\n"
-        f'  move /Y "{backup}" "{app_dir}" >nul 2>&1\r\n'
+        f'robocopy "{app_dir}" "{backup}" /E /MOVE /COPY:DAT /R:3 /W:2 >nul\r\n'
+        "if %errorlevel% GEQ 8 exit /b 10\r\n"
+        f'robocopy "{source_dir}" "{app_dir}" /E /COPY:DAT /R:3 /W:2 >nul\r\n'
+        "if %errorlevel% GEQ 8 (\r\n"
+        f'  robocopy "{backup}" "{app_dir}" /E /COPY:DAT /R:3 /W:2 >nul\r\n'
         "  exit /b 11\r\n"
         ")\r\n"
-        "timeout /t 1 /nobreak >nul\r\n"
-        "goto MOVENEW\r\n"
-        ":STARTNEW\r\n"
         f'start "" "{app_dir}\\OmniGrab.exe"\r\n',
         encoding="utf-8",
     )
