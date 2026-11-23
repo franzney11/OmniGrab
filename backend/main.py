@@ -13,9 +13,12 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
+import urllib.request
+import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -28,6 +31,17 @@ from pydantic import BaseModel
 # Recursos de solo lectura (también funciona dentro del paquete PyInstaller).
 RESOURCE_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
 FRONTEND = RESOURCE_ROOT / "frontend"
+APP_VERSION = "1.0.0"
+for version_path in (
+    RESOURCE_ROOT / "version.txt",
+    Path(getattr(sys, "_MEIPASS", RESOURCE_ROOT)) / "version.txt",
+):
+    try:
+        if version_path.is_file():
+            APP_VERSION = version_path.read_text(encoding="utf-8").strip() or APP_VERSION
+            break
+    except OSError:
+        pass
 # Los datos y temporales nunca se escriben dentro de Program Files ni del bundle.
 if sys.platform == "win32":
     USER_DATA = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "OmniGrab"
@@ -487,6 +501,184 @@ def _run_job(job_id: str, meta: dict, height: int, mode: str, upscale: bool, bit
 # --------------------------------------------------------------------------
 app = FastAPI(title="OmniGrab")
 
+RELEASE_API = "https://api.github.com/repos/franzney11/OmniGrab/releases/latest"
+UPDATE_LOCK = threading.Lock()
+UPDATE_STATUS = {
+    "checking": False,
+    "available": False,
+    "downloading": False,
+    "installing": False,
+    "error": "",
+    "current_version": APP_VERSION,
+    "latest_version": "",
+    "release_url": "",
+    "notes": "",
+    "asset_name": "",
+}
+
+
+def version_tuple(value: str) -> tuple[int, ...]:
+    numbers = re.findall(r"\d+", value.strip().lstrip("vV"))
+    parts = tuple(int(number) for number in numbers) if numbers else (0,)
+    return parts + (0,) * max(0, 3 - len(parts))
+
+
+def is_portable_install() -> bool:
+    if not getattr(sys, "frozen", False):
+        return False
+    executable = str(Path(sys.executable).resolve()).lower()
+    program_files = str(Path(os.environ.get("ProgramFiles", r"C:\Program Files")).resolve()).lower()
+    program_files_x86 = str(Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")).resolve()).lower()
+    return not executable.startswith(program_files) and not executable.startswith(program_files_x86)
+
+
+def check_latest_release() -> dict:
+    request = urllib.request.Request(
+        RELEASE_API,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "OmniGrab-Updater",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=15) as response:
+        release = json.loads(response.read().decode("utf-8"))
+
+    tag = str(release.get("tag_name") or "").strip()
+    latest = tag.lstrip("vV")
+    portable = is_portable_install()
+    preferred = "OmniGrab-Portable.zip" if portable else "OmniGrab-Setup.exe"
+    assets = release.get("assets") or []
+    asset = next((item for item in assets if item.get("name") == preferred), None)
+    if asset is None:
+        asset = next(
+            (item for item in assets if item.get("name") in ("OmniGrab-Setup.exe", "OmniGrab-Portable.zip")),
+            None,
+        )
+
+    return {
+        "current_version": APP_VERSION,
+        "latest_version": latest,
+        "available": bool(asset and latest and version_tuple(latest) > version_tuple(APP_VERSION)),
+        "release_url": release.get("html_url") or "",
+        "notes": str(release.get("body") or "")[:1000],
+        "asset_name": asset.get("name", "") if asset else "",
+        "download_url": asset.get("browser_download_url", "") if asset else "",
+        "portable": portable,
+    }
+
+
+def trusted_github_download(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return host == "github.com" or host.endswith(".github.com") or host.endswith(".githubusercontent.com")
+
+
+def download_update_asset(download_url: str, asset_name: str) -> Path:
+    if not trusted_github_download(download_url):
+        raise RuntimeError("La descarga no proviene de GitHub.")
+    destination_dir = Path(tempfile.gettempdir()) / "OmniGrab-Update"
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination = destination_dir / asset_name
+    request = urllib.request.Request(download_url, headers={"User-Agent": "OmniGrab-Updater"})
+    with urllib.request.urlopen(request, timeout=60) as source, destination.open("wb") as target:
+        shutil.copyfileobj(source, target)
+    return destination
+
+
+def safe_extract_zip(package: Path, destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    root = destination.resolve()
+    with zipfile.ZipFile(package) as archive:
+        for member in archive.infolist():
+            target = (destination / member.filename).resolve()
+            if target != root and root not in target.parents:
+                raise RuntimeError("El paquete portable contiene una ruta no segura.")
+        archive.extractall(destination)
+
+
+def launch_installer(installer: Path) -> None:
+    subprocess.Popen(
+        [
+            str(installer),
+            "/SILENT",
+            "/CLOSEAPPLICATIONS",
+            "/FORCECLOSEAPPLICATIONS",
+            "/NORESTART",
+        ],
+        shell=False,
+    )
+
+
+def launch_portable_update(package: Path) -> None:
+    if not getattr(sys, "frozen", False):
+        raise RuntimeError("Solo la versión portable compilada puede actualizarse desde aquí.")
+
+    app_dir = Path(sys.executable).resolve().parent
+    extract_dir = Path(tempfile.gettempdir()) / "OmniGrab-Update" / "extracted"
+    if extract_dir.exists():
+        shutil.rmtree(extract_dir)
+    safe_extract_zip(package, extract_dir)
+
+    executable = next(extract_dir.rglob("OmniGrab.exe"), None)
+    if not executable:
+        raise RuntimeError("El paquete portable no contiene OmniGrab.exe.")
+
+    source_dir = executable.parent
+    script = Path(tempfile.gettempdir()) / "OmniGrab-Update" / "replace-portable.ps1"
+    script.write_text(
+        r"""param([int]$ParentPid, [string]$AppDir, [string]$SourceDir)
+$ErrorActionPreference = 'Stop'
+Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue
+$parent = Split-Path -LiteralPath $AppDir -Parent
+$backup = Join-Path $parent ("OmniGrab-backup-" + [guid]::NewGuid().ToString("N"))
+try {
+    Move-Item -LiteralPath $AppDir -Destination $backup
+    Move-Item -LiteralPath $SourceDir -Destination $AppDir
+    Start-Process -FilePath (Join-Path $AppDir "OmniGrab.exe")
+} catch {
+    if ((Test-Path -LiteralPath $backup) -and -not (Test-Path -LiteralPath $AppDir)) {
+        Move-Item -LiteralPath $backup -Destination $AppDir
+    }
+    throw
+}
+""",
+        encoding="utf-8",
+    )
+    subprocess.Popen(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(script),
+            "-ParentPid",
+            str(os.getpid()),
+            "-AppDir",
+            str(app_dir),
+            "-SourceDir",
+            str(source_dir),
+        ],
+        shell=False,
+    )
+
+
+def run_update(download_url: str, asset_name: str) -> None:
+    with UPDATE_LOCK:
+        UPDATE_STATUS.update(downloading=True, installing=False, error="")
+    try:
+        package = download_update_asset(download_url, asset_name)
+        with UPDATE_LOCK:
+            UPDATE_STATUS.update(downloading=False, installing=True)
+        if asset_name == "OmniGrab-Setup.exe":
+            launch_installer(package)
+        elif asset_name == "OmniGrab-Portable.zip":
+            launch_portable_update(package)
+        else:
+            raise RuntimeError("Formato de actualización no reconocido.")
+    except Exception as exc:
+        with UPDATE_LOCK:
+            UPDATE_STATUS.update(downloading=False, installing=False, error=str(exc)[:300])
+
 
 @app.on_event("startup")
 def _startup():
@@ -519,6 +711,56 @@ class CheckoutIn(BaseModel):
 @app.get("/api/health")
 def health():
     return {"ffmpeg": bool(FFMPEG), "credits": credits_get()}
+
+
+@app.get("/api/update/check")
+def update_check():
+    with UPDATE_LOCK:
+        UPDATE_STATUS["checking"] = True
+        UPDATE_STATUS["error"] = ""
+    try:
+        result = check_latest_release()
+        with UPDATE_LOCK:
+            UPDATE_STATUS.update(
+                checking=False,
+                available=result["available"],
+                latest_version=result["latest_version"],
+                release_url=result["release_url"],
+                notes=result["notes"],
+                asset_name=result["asset_name"],
+            )
+        return result
+    except Exception as exc:
+        with UPDATE_LOCK:
+            UPDATE_STATUS.update(checking=False, available=False, error=str(exc)[:300])
+        raise HTTPException(502, f"No se pudo comprobar GitHub Releases: {str(exc)[:200]}") from exc
+
+
+@app.post("/api/update/download")
+def update_download():
+    try:
+        result = check_latest_release()
+    except Exception as exc:
+        raise HTTPException(502, f"No se pudo comprobar GitHub Releases: {str(exc)[:200]}") from exc
+    if not result["available"] or not result["download_url"]:
+        raise HTTPException(409, "No hay una actualización disponible.")
+
+    with UPDATE_LOCK:
+        if UPDATE_STATUS["downloading"] or UPDATE_STATUS["installing"]:
+            return {"started": False}
+
+    threading.Thread(
+        target=run_update,
+        args=(result["download_url"], result["asset_name"]),
+        daemon=True,
+    ).start()
+    return {"started": True}
+
+
+@app.get("/api/update/status")
+def update_status():
+    with UPDATE_LOCK:
+        return dict(UPDATE_STATUS)
 
 
 @app.post("/api/analyze")

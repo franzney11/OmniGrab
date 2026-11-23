@@ -32,6 +32,10 @@ class DesktopAPI:
         )
         return str(result[0]) if result else None
 
+    def close_window(self) -> None:
+        if webview.windows:
+            webview.windows[0].destroy()
+
 
 def main() -> None:
     port = free_port()
