@@ -501,7 +501,7 @@ def _run_job(job_id: str, meta: dict, height: int, mode: str, upscale: bool, bit
 # --------------------------------------------------------------------------
 app = FastAPI(title="OmniGrab")
 
-RELEASE_API = "https://api.github.com/repos/franzney11/OmniGrab/releases/latest"
+RELEASES_LATEST = "https://github.com/franzney11/OmniGrab/releases/latest"
 UPDATE_LOCK = threading.Lock()
 UPDATE_STATUS = {
     "checking": False,
@@ -534,35 +534,30 @@ def is_portable_install() -> bool:
 
 def check_latest_release() -> dict:
     request = urllib.request.Request(
-        RELEASE_API,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "OmniGrab-Updater",
-        },
+        RELEASES_LATEST,
+        headers={"User-Agent": "OmniGrab-Updater"},
     )
     with urllib.request.urlopen(request, timeout=15) as response:
-        release = json.loads(response.read().decode("utf-8"))
-
-    tag = str(release.get("tag_name") or "").strip()
+        final_url = str(response.url or "")
+        tag = final_url.rstrip("/").rsplit("/", 1)[-1].strip()
     latest = tag.lstrip("vV")
+    if not latest or not re.fullmatch(r"\d+(?:\.\d+)*", latest):
+        raise RuntimeError("No se pudo determinar la última versión.")
+
     portable = is_portable_install()
     preferred = "OmniGrab-Portable.zip" if portable else "OmniGrab-Setup.exe"
-    assets = release.get("assets") or []
-    asset = next((item for item in assets if item.get("name") == preferred), None)
-    if asset is None:
-        asset = next(
-            (item for item in assets if item.get("name") in ("OmniGrab-Setup.exe", "OmniGrab-Portable.zip")),
-            None,
-        )
+    asset_name = preferred
+    download_url = f"https://github.com/franzney11/OmniGrab/releases/latest/download/{asset_name}"
+    release_url = final_url
 
     return {
         "current_version": APP_VERSION,
         "latest_version": latest,
-        "available": bool(asset and latest and version_tuple(latest) > version_tuple(APP_VERSION)),
-        "release_url": release.get("html_url") or "",
-        "notes": str(release.get("body") or "")[:1000],
-        "asset_name": asset.get("name", "") if asset else "",
-        "download_url": asset.get("browser_download_url", "") if asset else "",
+        "available": bool(version_tuple(latest) > version_tuple(APP_VERSION)),
+        "release_url": release_url,
+        "notes": "",
+        "asset_name": asset_name,
+        "download_url": download_url,
         "portable": portable,
     }
 
