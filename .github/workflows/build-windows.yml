@@ -7,7 +7,7 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -40,10 +40,31 @@ jobs:
         with:
           path: installer/OmniGrab.iss
           options: /O+ /DMyAppVersion=${{ github.ref_name }}
+      - name: Create portable ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/OmniGrab -DestinationPath OmniGrab-Portable.zip -CompressionLevel Optimal
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
           name: OmniGrab-Windows
           path: |
             Output/OmniGrab-Setup.exe
+            OmniGrab-Portable.zip
             dist/OmniGrab/**
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: OmniGrab ${{ github.ref_name }}
+          body: |
+            ## OmniGrab ${{ github.ref_name }}
+
+            ### Windows downloads
+            - **OmniGrab-Setup.exe** - Installer
+            - **OmniGrab-Portable.zip** - Portable version
+
+            OmniGrab requires Windows 10 or 11 x64 and Microsoft Edge WebView2.
+          files: |
+            Output/OmniGrab-Setup.exe
+            OmniGrab-Portable.zip
