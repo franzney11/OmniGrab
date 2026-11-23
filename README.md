@@ -57,6 +57,9 @@ OmniGrab/
 │   └── OmniGrab.iss
 ├── desktop_main.py
 ├── requirements-desktop.txt
+├── omnigrab-icon.ico
+├── omnigrab-icon.png
+├── version.txt
 ├── LICENSE
 └── README.md
 ```
@@ -81,6 +84,8 @@ To build the Windows distribution:
 ```powershell
 python -m PyInstaller --noconfirm --clean --windowed --onedir `
   --name OmniGrab `
+  --icon "omnigrab-icon.ico" `
+  --add-data "omnigrab-icon.png;." `
   --collect-all yt_dlp `
   --collect-all imageio_ffmpeg `
   --collect-all webview `
@@ -89,6 +94,7 @@ python -m PyInstaller --noconfirm --clean --windowed --onedir `
   --collect-all starlette `
   --collect-all pydantic `
   --add-data "frontend;frontend" `
+  --add-data "version.txt;." `
   desktop_main.py
 ```
 
@@ -117,6 +123,11 @@ Open the **Downloads** tab to choose a destination folder.
 - `GET /api/jobs` - Read the in-memory download queue.
 - `POST /api/open/{job_id}` - Open the downloaded file or output folder.
 - `GET /api/health` - Local health check.
+- `GET /api/settings/folders` - Read the default download folder.
+- `POST /api/settings/folders` - Set the default download folder.
+- `GET /api/update/check` - Check GitHub Releases for a newer version.
+- `POST /api/update/download` - Download and prepare an available update.
+- `GET /api/update/status` - Read updater status.
 
 ## License
 
