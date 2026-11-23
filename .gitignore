@@ -7,3 +7,4 @@ Output/
 *.spec
 .env
 .DS_Store
+*.zip
