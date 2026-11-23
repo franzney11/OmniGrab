@@ -623,40 +623,27 @@ def launch_portable_update(package: Path) -> None:
         raise RuntimeError("El paquete portable no contiene OmniGrab.exe.")
 
     source_dir = executable.parent
-    script = Path(tempfile.gettempdir()) / "OmniGrab-Update" / "replace-portable.ps1"
+    script = Path(tempfile.gettempdir()) / "OmniGrab-Update" / "replace-portable.cmd"
+    backup = app_dir.parent / f"{app_dir.name}-backup-{uuid.uuid4().hex}"
     script.write_text(
-        r"""param([int]$ParentPid, [string]$AppDir, [string]$SourceDir)
-$ErrorActionPreference = 'Stop'
-Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue
-$parent = Split-Path -LiteralPath $AppDir -Parent
-$backup = Join-Path $parent ("OmniGrab-backup-" + [guid]::NewGuid().ToString("N"))
-try {
-    Move-Item -LiteralPath $AppDir -Destination $backup
-    Move-Item -LiteralPath $SourceDir -Destination $AppDir
-    Start-Process -FilePath (Join-Path $AppDir "OmniGrab.exe")
-} catch {
-    if ((Test-Path -LiteralPath $backup) -and -not (Test-Path -LiteralPath $AppDir)) {
-        Move-Item -LiteralPath $backup -Destination $AppDir
-    }
-    throw
-}
-""",
+        "@echo off\r\n"
+        "timeout /t 4 /nobreak >nul\r\n"
+        f'move /Y "{app_dir}" "{backup}" >nul\r\n'
+        "if errorlevel 1 exit /b 10\r\n"
+        f'move /Y "{source_dir}" "{app_dir}" >nul\r\n'
+        "if errorlevel 1 (\r\n"
+        f'  move /Y "{backup}" "{app_dir}" >nul\r\n'
+        "  exit /b 11\r\n"
+        ")\r\n"
+        f'start "" "{app_dir}\\OmniGrab.exe"\r\n',
         encoding="utf-8",
     )
     subprocess.Popen(
         [
-            "powershell.exe",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
+            "cmd.exe",
+            "/d",
+            "/c",
             str(script),
-            "-ParentPid",
-            str(os.getpid()),
-            "-AppDir",
-            str(app_dir),
-            "-SourceDir",
-            str(source_dir),
         ],
         shell=False,
     )
