@@ -41,6 +41,7 @@ jobs:
           --collect-all fastapi
           --collect-all starlette
           --collect-all pydantic
+          --collect-all curl_cffi
           --add-data "frontend;frontend"
           --add-data "version.txt;."
           desktop_main.py

@@ -14,6 +14,7 @@ The installer creates Start menu and desktop shortcuts. The portable ZIP can be 
 ## Features
 
 - Video and audio download modes.
+- Public TikTok video and audio support.
 - Resolution and audio bitrate selection.
 - Download queue with progress, speed, file size, and estimated time.
 - Download-only processing on the local machine.

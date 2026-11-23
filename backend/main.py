@@ -23,6 +23,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import yt_dlp
+from yt_dlp.networking.impersonate import ImpersonateTarget
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -192,6 +193,12 @@ def validate_url(url: str) -> str:
     return url
 
 
+def apply_tiktok_opts(opts: dict, url: str) -> dict:
+    if "tiktok.com" in (urlparse(url).hostname or "").lower():
+        opts["impersonate"] = ImpersonateTarget(client="chrome")
+    return opts
+
+
 def short_side(fmt: dict) -> int:
     w, h = fmt.get("width"), fmt.get("height")
     if w and h:
@@ -241,6 +248,7 @@ def probe(url: str) -> dict:
         return cached[1]
 
     opts = {"quiet": True, "no_warnings": True, "noplaylist": True, "skip_download": True}
+    apply_tiktok_opts(opts, url)
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -434,6 +442,7 @@ def _run_job(job_id: str, meta: dict, height: int, mode: str, upscale: bool, bit
             "ffmpeg_location": FFMPEG,
             "concurrent_fragment_downloads": 4,  # acelera HLS/DASH
         }
+        apply_tiktok_opts(opts, meta["url"])
         if mode == "audio_only":
             opts["format"] = "bestaudio/best"
             opts["postprocessors"] = [
