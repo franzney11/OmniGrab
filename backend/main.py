@@ -628,13 +628,26 @@ def launch_portable_update(package: Path) -> None:
     script.write_text(
         "@echo off\r\n"
         "timeout /t 4 /nobreak >nul\r\n"
-        f'move /Y "{app_dir}" "{backup}" >nul\r\n'
-        "if errorlevel 1 exit /b 10\r\n"
-        f'move /Y "{source_dir}" "{app_dir}" >nul\r\n'
-        "if errorlevel 1 (\r\n"
-        f'  move /Y "{backup}" "{app_dir}" >nul\r\n'
+        "set attempt=0\r\n"
+        ":MOVEOLD\r\n"
+        f'move /Y "{app_dir}" "{backup}" >nul 2>&1\r\n'
+        "if not errorlevel 1 goto MOVENEW\r\n"
+        "set /a attempt+=1\r\n"
+        "if %attempt% GEQ 12 exit /b 10\r\n"
+        "timeout /t 1 /nobreak >nul\r\n"
+        "goto MOVEOLD\r\n"
+        "set attempt=0\r\n"
+        ":MOVENEW\r\n"
+        f'move /Y "{source_dir}" "{app_dir}" >nul 2>&1\r\n'
+        "if not errorlevel 1 goto STARTNEW\r\n"
+        "set /a attempt+=1\r\n"
+        "if %attempt% GEQ 12 (\r\n"
+        f'  move /Y "{backup}" "{app_dir}" >nul 2>&1\r\n'
         "  exit /b 11\r\n"
         ")\r\n"
+        "timeout /t 1 /nobreak >nul\r\n"
+        "goto MOVENEW\r\n"
+        ":STARTNEW\r\n"
         f'start "" "{app_dir}\\OmniGrab.exe"\r\n',
         encoding="utf-8",
     )
