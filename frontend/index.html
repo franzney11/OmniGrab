@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="es" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OmniGrab</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background: radial-gradient(1200px 600px at 50% -10%, #1e1b4b55, transparent), #09090b; }
+  .glass { background: #18181bcc; border: 1px solid #27272a; backdrop-filter: blur(8px); }
+</style>
+</head>
+<body class="min-h-screen text-zinc-100 antialiased">
+<main class="max-w-3xl mx-auto px-4 py-10">
+
+  <header class="flex items-center justify-between mb-10">
+    <h1 class="text-2xl font-bold tracking-tight">Omni<span class="text-indigo-400">Grab</span></h1>
+    <button id="creditsBtn" class="glass rounded-full px-4 py-1.5 text-sm hover:border-amber-400/60 transition">
+      ⚡ <span id="credits">0</span> créditos PRO
+    </button>
+  </header>
+
+  <!-- Barra de URL (sin autocompletado ni historial de enlaces) -->
+  <form id="form" autocomplete="off" class="glass rounded-2xl p-2 flex gap-2">
+    <input id="url" name="omnigrab-url" type="url" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true"
+      placeholder="Pega el enlace del vídeo…"
+      class="flex-1 bg-transparent px-4 py-3 outline-none placeholder-zinc-500">
+    <button id="analyzeBtn" class="bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 rounded-xl px-6 font-medium transition">Analizar</button>
+  </form>
+  <p id="error" class="hidden mt-3 text-sm text-red-400"></p>
+  <p id="ok" class="hidden mt-3 text-sm text-emerald-400"></p>
+
+  <!-- Pestañas principales -->
+  <nav class="flex gap-2 mt-6 border-b border-zinc-800">
+    <button data-view="video" class="tab px-4 py-2 rounded-t-lg text-sm font-medium">🎬 Video <span class="text-zinc-500">.mp4</span></button>
+    <button data-view="audio" class="tab px-4 py-2 rounded-t-lg text-sm font-medium">🎵 Audio <span class="text-zinc-500">.mp3</span></button>
+    <button data-view="downloads" class="tab px-4 py-2 rounded-t-lg text-sm font-medium">⬇ Descargas
+      <span id="dlBadge" class="hidden ml-1 rounded-full bg-indigo-500 text-white text-[10px] px-1.5 py-0.5">0</span></button>
+  </nav>
+
+  <p id="empty" class="text-sm text-zinc-500 text-center py-12">Pega un enlace y pulsa Analizar para ver las opciones.</p>
+
+  <!-- Análisis: vista previa + opciones (Video o Audio) -->
+  <section id="analysis" class="hidden glass rounded-2xl mt-6 overflow-hidden">
+    <div class="flex gap-4 p-4">
+      <img id="thumb" class="w-44 h-28 object-cover rounded-xl bg-zinc-800" alt="">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span id="platform" class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300"></span>
+          <span id="duration" class="text-xs text-zinc-400"></span>
+        </div>
+        <h2 id="title" class="font-semibold leading-snug line-clamp-2"></h2>
+        <p class="text-sm text-zinc-400 mt-2">Calidad original máxima: <b id="native" class="text-zinc-200"></b></p>
+      </div>
+    </div>
+
+    <div class="border-t border-zinc-800 p-4">
+      <!-- Opciones de vídeo -->
+      <div id="pickVideo">
+        <p class="text-xs uppercase tracking-wider text-zinc-500 mb-3">🎬 Video + Audio</p>
+        <div id="optsVA" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+        <p class="text-xs uppercase tracking-wider text-zinc-500 mt-5 mb-3">🔇 Solo video (sin audio)</p>
+        <div id="optsVO" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+      </div>
+
+      <!-- Opciones de audio -->
+      <div id="pickAudio" class="hidden">
+        <p class="text-xs uppercase tracking-wider text-zinc-500 mb-3">🎵 Solo audio · MP3 con metadatos</p>
+        <div id="optsAU" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+        <p id="abrNote" class="text-xs text-zinc-500 mt-3"></p>
+      </div>
+
+      <!-- Bloqueo: mientras se descarga, las opciones se sustituyen por el progreso -->
+      <div id="lockBox" class="hidden rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4">
+        <div class="flex flex-wrap items-center gap-2 text-xs mb-3" id="lockSteps"></div>
+        <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div id="lockBar" class="h-full bg-indigo-500 transition-all" style="width:0%"></div></div>
+        <div class="flex justify-between gap-3 text-xs text-zinc-400 mt-2"><span id="lockStatus"></span><span id="lockInfo" class="text-right"></span></div>
+        <p class="text-[11px] text-zinc-500 mt-3">Las opciones se desbloquean al terminar. Mientras tanto puedes cambiar de pestaña.</p>
+      </div>
+
+      <button id="goBtn" disabled class="mt-6 w-full bg-indigo-500 hover:bg-indigo-400 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-xl py-3 font-medium transition">
+        Selecciona una calidad
+      </button>
+    </div>
+  </section>
+
+  <!-- Pestaña Descargas -->
+  <section id="view-downloads" class="hidden mt-6">
+    <div id="dlList" class="space-y-3"></div>
+  </section>
+</main>
+
+<!-- Modal de pago simulado (solo se abre al intentar reescalar) -->
+<div id="modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+  <div class="glass rounded-2xl w-full max-w-md p-6">
+    <div class="flex justify-between items-start mb-1">
+      <h3 class="text-lg font-semibold">Desbloquear reescalado <span class="text-amber-400">PRO</span></h3>
+      <button id="closeModal" class="text-zinc-500 hover:text-zinc-200">✕</button>
+    </div>
+    <p class="text-sm text-zinc-400 mb-4">Subir la resolución por encima de la original requiere reescalado con FFmpeg. Cada reescalado cuesta 1 crédito.</p>
+    <div id="packs" class="space-y-2 mb-4"></div>
+    <input id="card_num" value="4242 4242 4242 4242" class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm mb-2" placeholder="Número de tarjeta">
+    <div class="flex gap-2 mb-4">
+      <input value="12/30" class="w-1/2 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm" placeholder="MM/AA">
+      <input value="123" class="w-1/2 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm" placeholder="CVC">
+    </div>
+    <button id="payBtn" class="w-full bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold rounded-xl py-3 transition disabled:opacity-50">Pagar</button>
+    <p id="payMsg" class="text-xs text-red-400 mt-2 hidden"></p>
+    <p class="text-[11px] text-zinc-500 mt-3 text-center">Pasarela simulada: no se realiza ningún cobro real.</p>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const ACTIVE = ["queued", "downloading", "processing", "upscaling"];
+const STAGE = { queued: "En cola", downloading: "Descargando", processing: "Procesando", upscaling: "Reescalando", done: "Completada", error: "Error" };
+const STAGE_COLOR = { queued: "text-zinc-400", downloading: "text-indigo-300", processing: "text-indigo-300", upscaling: "text-amber-300", done: "text-emerald-400", error: "text-red-400" };
+const BITRATE_LABELS = { 128: "Estándar / Ligero", 192: "Alta calidad", 256: "Muy alta", 320: "Máxima calidad" };
+
+let meta = null, sel = null, credits = 0, view = "video", chosenPack = "pack_5";
+let lockJobId = null, lockUrl = null;   // bloqueo en memoria (no se guarda nada en disco ni en el navegador)
+let jobsCache = [];
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtTime = (s) => { s = Math.round(s || 0); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+const fmtSize = (n) => n >= 1073741824 ? (n / 1073741824).toFixed(2) + " GB" : n >= 1048576 ? Math.round(n / 1048576) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+const fmtBytes = (n) => !n ? "0 MB" : n >= 1073741824 ? (n / 1073741824).toFixed(2) + " GB" : n >= 1048576 ? (n / 1048576).toFixed(2) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+const sizeText = (s) => s ? (s.exact ? "" : "~") + fmtSize(s.bytes) : "tamaño ?";
+const showErr = (m) => { $("error").textContent = m; $("error").classList.toggle("hidden", !m); if (m) $("ok").classList.add("hidden"); };
+const showOk = (m) => { $("ok").textContent = m; $("ok").classList.toggle("hidden", !m); };
+const setCredits = (n) => { credits = n; $("credits").textContent = n; };
+
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.detail || "Error"); e.status = r.status; throw e; }
+  return j;
+}
+
+/* ---------- Pestañas ---------- */
+function setView(v) {
+  if (v !== view) sel = null;
+  view = v;
+  document.querySelectorAll(".tab").forEach((b) => {
+    const on = b.dataset.view === v;
+    b.className = "tab px-4 py-2 rounded-t-lg text-sm font-medium " + (on ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-zinc-200");
+  });
+  const isDl = v === "downloads";
+  $("view-downloads").classList.toggle("hidden", !isDl);
+  $("analysis").classList.toggle("hidden", isDl || !meta);
+  $("empty").classList.toggle("hidden", isDl || !!meta);
+  document.querySelectorAll(".opt").forEach((x) => x.classList.remove("ring-2", "ring-indigo-400"));
+  refreshLock();
+  updateGo();
+}
+document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+
+/* ---------- Analizar ---------- */
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault(); showErr(""); showOk("");
+  $("analyzeBtn").disabled = true; $("analyzeBtn").textContent = "Analizando…";
+  const submittedUrl = $("url").value.trim();
+  try {
+    meta = await api("/api/analyze", { url: submittedUrl });
+    meta.url = submittedUrl;
+    setCredits(meta.credits); renderCard();
+  } catch (err) { showErr(err.message); }
+  finally {
+    // El enlace solo vive en memoria mientras se analiza/descarga; no se
+    // deja en el campo ni se escribe en almacenamiento persistente.
+    $("url").value = "";
+    $("analyzeBtn").disabled = false; $("analyzeBtn").textContent = "Analizar";
+  }
+});
+
+function optButton(o, mode, icon, size) {
+  const b = document.createElement("button");
+  const free = o.tier === "free";
+  b.className = "opt rounded-xl border px-3 py-2 text-sm text-left transition " +
+    (free ? "border-emerald-500/40 hover:bg-emerald-500/10" : "border-amber-500/40 hover:bg-amber-500/10");
+  b.dataset.mode = mode; b.dataset.height = o.height || 0; b.dataset.bitrate = o.bitrate || 0; b.dataset.tier = o.tier;
+  b.innerHTML = `<div class="font-medium">${icon} ${o.label}</div>` +
+    `<div class="text-xs text-zinc-300">${sizeText(size)}</div>` +
+    (free ? `<div class="text-[10px] font-bold text-emerald-400">GRATIS</div>`
+          : `<div class="text-[10px] font-bold text-amber-400">🔒 PRO · UPSCALE</div>`);
+  return b;
+}
+
+function renderCard() {
+  sel = null;
+  $("thumb").src = meta.thumbnail || "";
+  $("title").textContent = meta.title;
+  $("platform").textContent = meta.platform;
+  $("duration").textContent = fmtTime(meta.duration);
+  $("native").textContent = meta.native_max ? meta.native_max + "p" : "desconocida";
+  $("optsVA").replaceChildren(...meta.options.map((o) => optButton(o, "video_audio", "🎬", o.size_va)));
+  $("optsVO").replaceChildren(...meta.options.map((o) => optButton(o, "video_only", "🔇", o.size_vo)));
+  $("optsAU").replaceChildren(...meta.audio_options.map((a) =>
+    optButton({ bitrate: a.bitrate, label: `${a.bitrate} kbps`, tier: "free" }, "audio_only", "🎵",
+              a.bytes ? { bytes: a.bytes, exact: false } : null)));
+  $("optsAU").querySelectorAll(".opt").forEach((b) => {
+    const d = document.createElement("div"); d.className = "text-[10px] text-zinc-500"; d.textContent = BITRATE_LABELS[b.dataset.bitrate]; b.appendChild(d);
+  });
+  $("abrNote").textContent = meta.audio_kbps
+    ? `Audio original ≈ ${meta.audio_kbps} kbps. Elegir un bitrate mayor no mejora la calidad, solo aumenta el tamaño.`
+    : "";
+  setView(view === "audio" ? "audio" : "video");
+}
+
+/* ---------- Selección ---------- */
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".opt"); if (!b) return;
+  document.querySelectorAll(".opt").forEach((x) => x.classList.remove("ring-2", "ring-indigo-400"));
+  b.classList.add("ring-2", "ring-indigo-400");
+  sel = { mode: b.dataset.mode, height: parseInt(b.dataset.height), bitrate: parseInt(b.dataset.bitrate), tier: b.dataset.tier };
+  updateGo();
+});
+
+function updateGo() {
+  const g = $("goBtn");
+  g.disabled = !sel;
+  if (!sel) { g.textContent = "Selecciona una calidad"; return; }
+  const q = sel.height ? sel.height + "p" : "mejor calidad";
+  if (sel.mode === "audio_only") g.textContent = `🎵 Descargar MP3 ${sel.bitrate} kbps (gratis)`;
+  else if (sel.tier === "pro") g.textContent = `🔒 Reescalar a ${q}${sel.mode === "video_only" ? " sin audio" : ""} · 1 crédito PRO`;
+  else if (sel.mode === "video_only") g.textContent = `🔇 Descargar ${q} sin audio (gratis)`;
+  else g.textContent = `🎬 Descargar ${q} con audio (gratis)`;
+}
+
+/* ---------- Descargar ---------- */
+$("goBtn").addEventListener("click", () => {
+  if (!sel) return;
+  if (sel.tier === "pro" && credits < 1) return openModal();
+  startDownload();
+});
+
+async function startDownload() {
+  showErr(""); showOk("");
+  try {
+    const r = await api("/api/download", { url: meta.url, mode: sel.mode, height: sel.height || 0, audio_bitrate: sel.bitrate || 192 });
+    setCredits(r.credits);
+    lockJobId = r.job_id; lockUrl = meta.url;
+    sel = null;
+    poll();
+  } catch (err) {
+    if (err.status === 402) openModal();
+    else if (err.status === 409) showErr("Esa descarga ya está en curso.");
+    else showErr(err.message);
+  }
+}
+
+function drawSteps(el, stage, upscale) {
+  const defs = ["downloading", upscale ? "upscaling" : "processing", "done"];
+  const names = { downloading: "Descargando", processing: "Procesando", upscaling: "Reescalando", done: "Listo para guardar" };
+  const idx = defs.indexOf(stage);
+  el.innerHTML = defs.map((s, i) =>
+    `<span class="px-2 py-1 rounded-full ${i < idx || stage === "done" ? "bg-emerald-500/20 text-emerald-300" : i === idx ? "bg-indigo-500/30 text-indigo-200" : "bg-zinc-800 text-zinc-500"}">${names[s]}</span>`
+  ).join('<span class="text-zinc-600">→</span>');
+}
+
+function renderLock(j) {
+  drawSteps($("lockSteps"), j.stage, j.upscale);
+  $("lockBar").style.width = (j.progress || 0) + "%";
+  $("lockStatus").textContent = j.stage === "queued" ? "En cola…" : `${STAGE[j.stage] || ""} ${Math.round(j.progress || 0)}%`;
+  $("lockInfo").textContent = [
+    j.total_bytes ? `${fmtBytes(j.done_bytes)} de ${fmtBytes(j.total_bytes)}` : "",
+    j.speed, j.eta && "ETA " + j.eta,
+  ].filter(Boolean).join(" · ");
+}
+
+function refreshLock() {
+  // El bloqueo se calcula desde la cola completa, no solo desde el último
+  // trabajo iniciado en esta pestaña. Así persiste al navegar entre pestañas.
+  const j = meta ? jobsCache.find((x) => x.url === meta.url && ACTIVE.includes(x.stage)) : null;
+  const locked = !!j && view !== "downloads";
+  $("lockBox").classList.toggle("hidden", !locked);
+  $("goBtn").classList.toggle("hidden", locked);
+  $("pickVideo").classList.toggle("hidden", locked || view !== "video");
+  $("pickAudio").classList.toggle("hidden", locked || view !== "audio");
+  if (locked) renderLock(j);
+}
+
+/* ---------- Cola y estado (sondeo ligero al servidor) ---------- */
+function rowHtml(j) {
+  const active = ACTIVE.includes(j.stage);
+  const sizes = j.total_bytes ? `${fmtBytes(j.done_bytes)} de ${fmtBytes(j.total_bytes)}` : (active && j.done_bytes ? fmtBytes(j.done_bytes) : "");
+  const tail = j.stage === "error" ? esc(j.message)
+    : j.stage === "done" ? esc(j.filename)
+    : esc([j.speed, j.eta && "ETA " + j.eta].filter(Boolean).join(" · "));
+  const width = j.stage === "done" ? 100 : (j.progress || 0);
+  return `<div class="glass rounded-xl p-4">
+    <div class="flex justify-between gap-3">
+      <div class="min-w-0"><p class="font-medium truncate">${esc(j.title)}</p><p class="text-xs text-zinc-500">${esc(j.label)}</p></div>
+      <span class="text-xs whitespace-nowrap ${STAGE_COLOR[j.stage] || ""}">${STAGE[j.stage] || esc(j.stage)}${active && j.stage !== "queued" ? " " + Math.round(j.progress || 0) + "%" : ""}</span>
+    </div>
+    <div class="h-1.5 rounded-full bg-zinc-800 overflow-hidden mt-3"><div class="h-full ${j.stage === "error" ? "bg-red-500" : "bg-indigo-500"} transition-all" style="width:${width}%"></div></div>
+    <div class="flex justify-between items-center gap-3 text-xs text-zinc-400 mt-2"><span>${esc(sizes)}</span><span class="truncate text-right">${tail}</span></div>
+    <div class="mt-3 text-right"><button data-open="${esc(j.id)}" class="text-xs rounded-lg border border-zinc-700 px-3 py-1.5 hover:border-indigo-400 transition">📂 Mostrar carpeta</button></div>
+  </div>`;
+}
+
+function renderDownloads() {
+  const act = jobsCache.filter((j) => ACTIVE.includes(j.stage)).length;
+  $("dlBadge").textContent = act;
+  $("dlBadge").classList.toggle("hidden", !act);
+  $("dlList").innerHTML = jobsCache.length
+    ? jobsCache.map(rowHtml).join("")
+    : `<p class="text-sm text-zinc-500 text-center py-12">Todavía no hay descargas en esta sesión.</p>`;
+}
+
+$("dlList").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-open]"); if (!b) return;
+  fetch("/api/open/" + b.dataset.open, { method: "POST" }).catch(() => {});
+});
+
+async function poll() {
+  try { jobsCache = await api("/api/jobs"); } catch (_) { /* servidor ocupado: reintenta */ }
+  renderDownloads();
+  if (lockJobId) {
+    const j = jobsCache.find((x) => x.id === lockJobId);
+    if (!j || j.stage === "done" || j.stage === "error") {
+      if (j && j.stage === "error") showErr("Error: " + j.message);
+      if (j && j.stage === "done") showOk("✔ Descarga completada: " + j.filename + " (en tu carpeta OmniGrab)");
+      lockJobId = null; lockUrl = null;
+      api("/api/credits").then((c) => setCredits(c.credits)).catch(() => {});
+    }
+  }
+  refreshLock();
+}
+setInterval(poll, 800);
+
+/* ---------- Modal de pago (simulado) ---------- */
+async function openModal() {
+  const c = await api("/api/credits"); setCredits(c.credits);
+  $("packs").innerHTML = Object.entries(c.packs).map(([id, p]) => `
+    <label class="flex items-center justify-between border border-zinc-700 rounded-lg px-3 py-2 cursor-pointer hover:border-amber-400/60">
+      <span class="flex items-center gap-2"><input type="radio" name="pack" value="${id}" ${id === chosenPack ? "checked" : ""}> ${p.label}</span>
+      <b>${p.price.toFixed(2)} €</b></label>`).join("");
+  $("payMsg").classList.add("hidden"); $("modal").classList.remove("hidden");
+}
+$("closeModal").addEventListener("click", () => $("modal").classList.add("hidden"));
+$("creditsBtn").addEventListener("click", openModal);
+$("payBtn").addEventListener("click", async () => {
+  chosenPack = document.querySelector('input[name="pack"]:checked').value;
+  $("payBtn").disabled = true; $("payBtn").textContent = "Procesando…";
+  try {
+    const r = await api("/api/checkout", { pack_id: chosenPack, card: $("card_num").value });
+    setCredits(r.credits); $("modal").classList.add("hidden");
+    if (sel && sel.tier === "pro") startDownload();
+  } catch (err) { $("payMsg").textContent = err.message; $("payMsg").classList.remove("hidden"); }
+  $("payBtn").disabled = false; $("payBtn").textContent = "Pagar";
+});
+
+setView("video");
+poll();
+api("/api/credits").then((c) => setCredits(c.credits)).catch(() => {});
+</script>
+</body>
+</html>
