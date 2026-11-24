@@ -377,16 +377,14 @@ def describe(mode, height, bitrate, upscale) -> str:
 
 
 def reveal(path):
-    """Abre el explorador de archivos (con el archivo seleccionado si existe)."""
+    """Abre la carpeta que contiene el archivo o la carpeta indicada."""
+    folder = path if path and path.is_dir() else path.parent if path else OUTPUT
     if sys.platform == "win32":
-        if path:
-            subprocess.Popen(["explorer", f"/select,{path}"])
-        else:
-            os.startfile(str(OUTPUT))  # noqa: S606
+        os.startfile(str(folder))  # noqa: S606
     elif sys.platform == "darwin":
-        subprocess.Popen(["open", "-R", str(path)] if path else ["open", str(OUTPUT)])
+        subprocess.Popen(["open", str(folder)])
     else:
-        subprocess.Popen(["xdg-open", str(path.parent if path else OUTPUT)])
+        subprocess.Popen(["xdg-open", str(folder)])
 
 
 def clean_old_files(max_age=24 * 3600):
@@ -883,9 +881,18 @@ def open_folder(job_id: str):
     job = jobs.get(job_id)
     if not job:
         raise HTTPException(404, "Trabajo no encontrado.")
-    OUTPUT.mkdir(parents=True, exist_ok=True)
-    path = Path(job["path"]) if job.get("path") else None
-    reveal(path if path and path.exists() else None)
+    if job.get("path"):
+        path = Path(job["path"])
+        if not path.is_file():
+            raise HTTPException(404, "El archivo descargado ya no está disponible.")
+        reveal(path)
+    elif job.get("output_dir"):
+        folder = Path(job["output_dir"])
+        if not folder.is_dir():
+            raise HTTPException(404, "La carpeta de descarga ya no está disponible.")
+        reveal(folder)
+    else:
+        raise HTTPException(404, "El trabajo no tiene una carpeta de descarga.")
     return {"ok": True}
 
 

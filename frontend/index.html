@@ -487,7 +487,7 @@ function renderDownloads() {
 
 $("dlList").addEventListener("click", (e) => {
   const b = e.target.closest("[data-open]"); if (!b) return;
-  fetch("/api/open/" + b.dataset.open, { method: "POST" }).catch(() => {});
+  api("/api/open/" + b.dataset.open, {}).catch((err) => showErr(err.message));
 });
 
 async function poll() {
