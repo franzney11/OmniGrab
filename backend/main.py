@@ -25,7 +25,7 @@ from urllib.parse import urlparse
 import yt_dlp
 from yt_dlp.networking.impersonate import ImpersonateTarget
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -917,5 +917,12 @@ async def checkout(body: CheckoutIn):
     return {"credits": credits_add(pack["credits"])}
 
 
-app.mount("/assets", StaticFiles(directory=RESOURCE_ROOT), name="assets")
+@app.get("/assets/omnigrab-icon.png")
+def app_icon():
+    icon_path = RESOURCE_ROOT / "omnigrab-icon.png"
+    if not icon_path.is_file():
+        raise HTTPException(404, "Icono no encontrado.")
+    return FileResponse(icon_path, media_type="image/png")
+
+
 app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
