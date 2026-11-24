@@ -111,44 +111,73 @@ SETTINGS_FILE = DATA / "settings.json"
 _settings_lock = threading.Lock()
 
 
-def get_default_output_dir() -> Path:
-    configured = os.environ.get("OMNIGRAB_OUT")
-    if configured:
-        return Path(configured).expanduser()
+def _default_media_settings() -> dict:
+    legacy = Path(os.environ["OMNIGRAB_OUT"]).expanduser() if os.environ.get("OMNIGRAB_OUT") else None
+    return {
+        "video": {"default_dir": str(legacy or (Path.home() / "Videos" / "OmniGrab")), "auto_save": False},
+        "audio": {"default_dir": str(legacy or (Path.home() / "Documents" / "Música")), "auto_save": False},
+    }
+
+
+def _read_folder_settings() -> dict:
+    defaults = _default_media_settings()
     with _settings_lock:
         try:
-            value = json.loads(SETTINGS_FILE.read_text(encoding="utf-8")).get("default_output_dir")
-            return Path(value).expanduser() if value else OUTPUT
-        except Exception:
-            return OUTPUT
+            saved = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError):
+            saved = {}
+    legacy = saved.get("default_output_dir")
+    result = {}
+    for media in ("video", "audio"):
+        current = saved.get(media) if isinstance(saved.get(media), dict) else {}
+        result[media] = {
+            "default_dir": str(current.get("default_dir") or legacy or defaults[media]["default_dir"]),
+            "auto_save": bool(current.get("auto_save", False)),
+        }
+    return result
 
 
-def set_default_output_dir(folder: str) -> Path:
-    if not folder.strip():
-        raise HTTPException(400, "La carpeta no puede estar vacía.")
-    path = Path(folder).expanduser().resolve()
-    try:
-        path.mkdir(parents=True, exist_ok=True)
-    except OSError as e:
-        raise HTTPException(400, f"No se pudo crear la carpeta: {e}") from e
-    if not path.is_dir():
-        raise HTTPException(400, "La ruta seleccionada no es una carpeta.")
-    with _settings_lock:
-        SETTINGS_FILE.write_text(json.dumps({"default_output_dir": str(path)}), encoding="utf-8")
-    return path
+def get_media_folder_settings() -> dict:
+    return _read_folder_settings()
 
 
-def resolve_output_dir(folder: str | None) -> Path:
-    if folder:
-        path = Path(folder).expanduser().resolve()
+def update_media_folder_settings(media: str, default_dir: str | None = None,
+                                 auto_save: bool | None = None) -> dict:
+    if media not in ("video", "audio"):
+        raise HTTPException(400, "Tipo de medio inválido.")
+    settings = _read_folder_settings()
+    current = settings[media]
+    if default_dir is not None:
+        if not default_dir.strip():
+            raise HTTPException(400, "La carpeta no puede estar vacía.")
+        path = Path(default_dir).expanduser().resolve()
         try:
             path.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            raise HTTPException(400, f"No se pudo crear la carpeta: {e}") from e
+        except OSError as exc:
+            raise HTTPException(400, f"No se pudo crear la carpeta: {exc}") from exc
         if not path.is_dir():
             raise HTTPException(400, "La ruta seleccionada no es una carpeta.")
-        return path
-    return get_default_output_dir()
+        current["default_dir"] = str(path)
+    if auto_save is not None:
+        current["auto_save"] = bool(auto_save)
+    settings[media] = current
+    with _settings_lock:
+        SETTINGS_FILE.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+    return current
+
+
+def resolve_output_dir(folder: str | None, media: str = "video") -> Path:
+    if folder:
+        path = Path(folder).expanduser().resolve()
+    else:
+        path = Path(_read_folder_settings()[media]["default_dir"]).expanduser()
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise HTTPException(400, f"No se pudo acceder a la carpeta: {exc}") from exc
+    if not path.is_dir():
+        raise HTTPException(400, "La ruta seleccionada no es una carpeta.")
+    return path
 
 
 def _credits_read() -> int:
@@ -700,7 +729,9 @@ class DownloadIn(BaseModel):
 
 
 class FolderSettingsIn(BaseModel):
-    default_output_dir: str
+    media: str
+    default_dir: str | None = None
+    auto_save: bool | None = None
 
 
 class CheckoutIn(BaseModel):
@@ -789,7 +820,8 @@ async def download(body: DownloadIn):
         raise HTTPException(400, "Bitrate no soportado.")
     url = validate_url(body.url)
     meta = await asyncio.to_thread(probe, url)
-    output_dir = resolve_output_dir(body.output_dir)
+    media = "audio" if audio_only else "video"
+    output_dir = resolve_output_dir(body.output_dir, media)
 
     req = (body.mode, body.height, body.audio_bitrate)
     # Solo una descarga activa por enlace: evita que se puedan iniciar varias
@@ -859,13 +891,14 @@ def open_folder(job_id: str):
 
 @app.get("/api/settings/folders")
 def get_folder_settings():
-    return {"default_output_dir": str(get_default_output_dir())}
+    return get_media_folder_settings()
 
 
 @app.post("/api/settings/folders")
 def set_folder_settings(body: FolderSettingsIn):
-    path = set_default_output_dir(body.default_output_dir)
-    return {"default_output_dir": str(path)}
+    if body.default_dir is None and body.auto_save is None:
+        raise HTTPException(400, "No hay cambios de configuración.")
+    return {"media": body.media, **update_media_folder_settings(body.media, body.default_dir, body.auto_save)}
 
 
 @app.get("/api/credits")
@@ -884,4 +917,5 @@ async def checkout(body: CheckoutIn):
     return {"credits": credits_add(pack["credits"])}
 
 
+app.mount("/assets", StaticFiles(directory=RESOURCE_ROOT), name="assets")
 app.mount("/", StaticFiles(directory=FRONTEND, html=True), name="frontend")
