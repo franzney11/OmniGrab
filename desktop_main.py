@@ -23,12 +23,19 @@ def free_port() -> int:
 
 
 class DesktopAPI:
-    def choose_folder(self) -> str | None:
+    def choose_folder(self, initial_dir: str | None = None) -> str | None:
+        """Abre el selector nativo desde la ruta indicada o el padre válido más cercano."""
         if not webview.windows:
             return None
+        candidate = Path(initial_dir).expanduser() if initial_dir else Path.home()
+        if not candidate.is_absolute():
+            candidate = Path.home() / candidate
+        while not candidate.exists() and candidate != candidate.parent:
+            candidate = candidate.parent
+        if not candidate.is_dir():
+            candidate = Path.home()
         result = webview.windows[0].create_file_dialog(
-            webview.FOLDER_DIALOG,
-            directory=str(Path.home()),
+            webview.FOLDER_DIALOG, directory=str(candidate),
         )
         return str(result[0]) if result else None
 
