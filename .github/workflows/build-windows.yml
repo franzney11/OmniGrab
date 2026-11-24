@@ -24,11 +24,20 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --upgrade pip && pip install -r requirements-desktop.txt
       - name: Set application version
-        if: startsWith(github.ref, 'refs/tags/v')
+        id: app_version
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
+          if ("${{ github.ref }}".StartsWith("refs/tags/v")) {
+            $version = "${{ github.ref_name }}".TrimStart("v")
+          } elseif ("${{ github.event_name }}" -eq "pull_request") {
+            # Test builds must be newer than the latest public release.
+            $version = "1.0.11"
+          } else {
+            $version = (Get-Content version.txt -Raw).Trim()
+          }
+          if (-not $version) { throw "Application version is empty." }
           Set-Content -Path version.txt -Value $version -NoNewline
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
       - name: Build desktop application
         shell: pwsh
         run: >-
@@ -51,7 +60,7 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
         with:
           path: installer/OmniGrab.iss
-          options: /O+ /DMyAppVersion=${{ github.ref_name }}
+          options: /O+ /DMyAppVersion=${{ steps.app_version.outputs.version }}
       - name: Create portable ZIP
         shell: pwsh
         run: |
