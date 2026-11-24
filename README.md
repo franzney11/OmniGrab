@@ -109,13 +109,17 @@ Compiled releases are available in GitHub Releases. Source builds should use Git
 
 The download queue exists only while the application is running.
 
-## Download Folder
+## Download Folders
 
-Open the **Downloads** tab to choose a destination folder.
+Open the **Downloads** tab to configure separate destinations for MP4 video and MP3 audio.
 
-- **Elegir carpeta** selects the destination for the next download only.
-- **Descargar siempre aquí** saves the selected folder as the persistent default.
-- Without a configured default, OmniGrab uses `Downloads\OmniGrab`.
+- Video defaults to `Videos\OmniGrab`; audio defaults to `Documents\Música`.
+- **Ruta de descarga por defecto** opens the native folder picker at the current destination and saves the selected folder.
+- **Descarga automática sin preguntar** independently enables/disables automatic saving for video and audio.
+- When automatic saving is off, OmniGrab asks for a destination folder before each download, starting from that media type's configured default.
+- Existing legacy `default_output_dir` settings are read as the initial default for both media types; automatic saving remains off until explicitly enabled.
+
+See [the Android architecture roadmap](docs/ANDROID-ARCHITECTURE-PLAN.md) for the proposed Android phase (iOS is future scope).
 
 ## API
 
