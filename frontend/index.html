@@ -3,111 +3,241 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#09090f">
 <title>OmniGrab</title>
+<link rel="icon" type="image/png" href="/assets/omnigrab-icon.png">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  body { background: radial-gradient(1200px 600px at 50% -10%, #1e1b4b55, transparent), #09090b; }
-  .glass { background: #18181bcc; border: 1px solid #27272a; backdrop-filter: blur(8px); }
+:root{color-scheme:dark;--bg:#09090f;--panel:#11111b;--panel2:#171725;--line:rgba(255,255,255,.075);--muted:#85859c;--text:#f4f2ff;--purple:#9270ff;--purple2:#6846e8;--cyan:#6ee7f9}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse 850px 520px at 65% -12%,rgba(112,76,225,.18),transparent 68%),radial-gradient(ellipse 600px 440px at 100% 75%,rgba(47,108,153,.08),transparent 70%),var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:-.012em}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #a78bfa;outline-offset:3px}
+.app-shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh;max-width:1680px;margin:0 auto}
+.sidebar{position:sticky;top:0;height:100vh;padding:28px 18px 22px;border-right:1px solid var(--line);background:rgba(10,10,17,.72);backdrop-filter:blur(24px);display:flex;flex-direction:column;z-index:10}
+.brand{display:flex;align-items:center;gap:12px;padding:2px 10px 34px}
+.brand-mark{width:38px;height:38px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(145deg,#a78bfa,#6546dc 70%);box-shadow:0 8px 28px #7957ed55;color:white;font-size:20px;font-weight:800}
+.brand-mark img{width:100%;height:100%;object-fit:cover}
+.brand-name{font-size:19px;font-weight:780;letter-spacing:-.055em}.brand-name span{color:#a78bfa}
+.brand-sub{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#77758f;margin-top:2px}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#65647a;padding:0 12px;margin:4px 0 10px}
+.side-nav{display:grid;gap:6px}
+.tab{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:12px 13px;border:1px solid transparent;border-radius:12px;color:#9896aa;background:transparent;font-size:13px;font-weight:570;transition:background .22s,border-color .22s,color .22s,transform .22s}
+.tab:hover{background:#ffffff08;color:#eeeaff;transform:translateX(2px)}
+.tab.bg-zinc-800{background:linear-gradient(100deg,#7958e52b,#7958e50c);border-color:#9b80ff35;color:#f3efff;box-shadow:inset 2px 0 #a78bfa}
+.nav-icon{width:19px;text-align:center;font-size:16px;opacity:.92}
+.nav-spacer{flex:1}
+.sidebar-card{padding:15px;border:1px solid #8b70e52c;border-radius:15px;background:linear-gradient(145deg,#6e50d51c,#181624a8);overflow:hidden;position:relative}
+.sidebar-card:after{content:"";position:absolute;width:110px;height:110px;border-radius:50%;right:-52px;top:-56px;background:#9270ff22;filter:blur(3px)}
+.sidebar-card strong{display:block;font-size:12px;margin-bottom:5px;position:relative}
+.sidebar-card p{font-size:11px;line-height:1.55;color:#9995b1;margin:0;position:relative}
+.sidebar-foot{font-size:10px;color:#5f5e72;padding:18px 10px 0}
+.workspace{min-width:0;padding:27px clamp(22px,4vw,58px) 42px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:34px}
+.eyebrow{font-size:10px;letter-spacing:.17em;text-transform:uppercase;color:#8d88a8;font-weight:650}
+.page-title{font-size:21px;font-weight:700;letter-spacing:-.045em;margin:4px 0 0}
+.top-actions{display:flex;align-items:center;gap:9px}
+.top-btn{border:1px solid var(--line);background:#ffffff08;color:#c9c5dc;border-radius:11px;padding:9px 13px;font-size:11px;transition:.2s;white-space:nowrap}
+.top-btn:hover{border-color:#9270ff77;background:#9270ff12;color:#fff}
+.credits-btn{border-color:#d5a94d36;background:#d5a94d0d;color:#eacb83}
+.content-grid{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:22px;align-items:start}
+.main-column{min-width:0}
+.hero{position:relative;isolation:isolate;overflow:hidden;border:1px solid #a78bfa32;border-radius:22px;padding:28px;background:linear-gradient(112deg,#211a3b 0%,#17152a 48%,#111a28 100%);box-shadow:0 18px 60px #0003}
+.hero:before{content:"";position:absolute;z-index:-1;width:330px;height:330px;right:-80px;top:-190px;border-radius:50%;background:#9872ff35;filter:blur(12px)}
+.hero:after{content:"";position:absolute;z-index:-1;width:220px;height:220px;right:90px;bottom:-190px;border-radius:50%;background:#4b9dc52a;filter:blur(25px)}
+.hero-kicker{display:flex;align-items:center;gap:8px;color:#c1b3ff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.16em}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#a78bfa;box-shadow:0 0 12px #a78bfa}
+.hero h1{font-size:clamp(23px,3vw,34px);line-height:1.13;letter-spacing:-.055em;margin:15px 0 8px;font-weight:760;max-width:520px}
+.hero-copy{font-size:12px;color:#aaa4c4;margin:0 0 22px;line-height:1.6}
+.url-form{display:flex;gap:8px;padding:7px;border:1px solid #ffffff20;background:#090912a8;border-radius:14px;box-shadow:0 8px 24px #0002;transition:border-color .2s,box-shadow .2s}
+.url-form:focus-within{border-color:#a78bfa9c;box-shadow:0 0 0 3px #9270ff1b,0 8px 24px #0002}
+.url-icon{display:grid;place-items:center;width:34px;color:#8f88ab;font-size:16px}
+.url-input{min-width:0;flex:1;border:0!important;outline:0!important;background:transparent!important;color:#f5f2ff;padding:8px 2px;font-size:12px}
+.url-input::placeholder{color:#77748e}
+.analyze-btn{border:0;border-radius:10px;padding:0 19px;background:linear-gradient(135deg,#9a7aff,#704ee5);color:white;font-size:12px;font-weight:700;box-shadow:0 5px 18px #7957e54d;transition:transform .2s,filter .2s,box-shadow .2s}
+.analyze-btn:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 8px 22px #7957e566}
+.analyze-btn:disabled{opacity:.55;cursor:wait;transform:none}
+.supported{display:flex;align-items:center;gap:8px;margin-top:13px;color:#8d89a5;font-size:10px}
+.support-pill{border:1px solid #ffffff17;border-radius:20px;padding:4px 8px;color:#aaa5c1;background:#ffffff08}
+.message{font-size:12px;margin:12px 3px 0}
+.section-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:28px 2px 13px}
+.section-head h2{font-size:15px;font-weight:680;letter-spacing:-.035em;margin:0}
+.section-head p{font-size:10px;color:#77758d;margin:4px 0 0}
+.content-surface{min-width:0}
+#empty{border:1px dashed #ffffff18;border-radius:18px;background:#ffffff04;padding:43px 18px;text-align:center;color:#77758d;font-size:12px}
+.empty-icon{font-size:27px;display:block;margin-bottom:12px;opacity:.7}
+#analysis{margin-top:0;border-radius:18px!important;background:linear-gradient(145deg,#171724f2,#11111bf2)!important;border:1px solid var(--line)!important;box-shadow:0 16px 40px #0002}
+#analysis>div:first-child{padding:20px!important;align-items:center}
+#thumb{width:178px;height:112px;border-radius:13px!important;box-shadow:0 7px 22px #0004}
+#title{font-size:16px;letter-spacing:-.025em}
+#analysis .border-t{border-color:var(--line)!important}
+#analysis .opt{border-radius:12px!important;background:#ffffff05!important;transition:transform .18s,border-color .18s,background .18s;min-height:76px}
+#analysis .opt:hover{transform:translateY(-2px);background:#9270ff12!important;border-color:#a78bfa88!important}
+#analysis .opt.ring-2{background:#9270ff18!important;box-shadow:0 0 0 2px #a78bfa55}
+#goBtn{border-radius:12px!important;background:linear-gradient(110deg,#9270ff,#704de0)!important;box-shadow:0 7px 22px #7957e533;transition:filter .2s,transform .2s}
+#goBtn:hover:not(:disabled){filter:brightness(1.12);transform:translateY(-1px)}
+#goBtn:disabled{background:#292735!important}
+#lockBox{border-radius:14px!important;background:#9270ff0d!important}
+#view-downloads .glass{background:linear-gradient(145deg,#171724f2,#11111bf2)!important;border-color:var(--line)!important;border-radius:15px!important}
+#dlList>div{transition:transform .2s,border-color .2s}
+#dlList>div:hover{transform:translateY(-1px);border-color:#9270ff55}
+.side-panel{display:grid;gap:13px;position:sticky;top:25px}
+.side-panel-card{border:1px solid var(--line);border-radius:17px;background:linear-gradient(145deg,#171724c9,#11111bbd);padding:17px}
+.side-panel-title{font-size:11px;font-weight:700;color:#e8e4f8;margin:0 0 14px}
+.status-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #ffffff0b}
+.status-icon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:#9270ff16;color:#b8a4ff;font-size:13px}
+.status-copy{min-width:0}.status-copy strong{display:block;font-size:10px;font-weight:650}.status-copy span{display:block;color:#77758d;font-size:9px;margin-top:3px}
+.tip-card{background:linear-gradient(145deg,#1d1a32,#131725);border-color:#9b80ff27}
+.tip-mark{font-size:19px;margin-bottom:9px}.tip-card p{font-size:10px;color:#9b96b2;line-height:1.65;margin:0}
+#view-downloads{margin-top:0}
+#downloadFolder{max-width:100%}
+#dlList .glass{background:#171724!important;border-color:var(--line)!important}
+.modal-surface{background:#11111b!important;border:1px solid var(--line)!important;box-shadow:0 25px 90px #0009}
+.media-folder-card{border:1px solid var(--line);background:linear-gradient(145deg,#171724f2,#11111bf2)}
+.media-folder-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:17px}
+.video-icon{background:#9270ff1b;color:#b9a5ff}.audio-icon{background:#6ee7f91a;color:#80e5f3}
+.folder-path-btn{width:100%;display:grid;grid-template-columns:1fr auto;gap:5px 12px;text-align:left;padding:12px;border:1px solid #ffffff12;border-radius:11px;background:#09091288}
+.folder-path-btn:hover{border-color:#9270ff88}.folder-path-label{grid-column:1/-1;font-size:10px;color:#8e89a5}
+.folder-path-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#eeeaff}
+.folder-path-action{font-size:10px;color:#b7a2ff;white-space:nowrap}
+.auto-save-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px;cursor:pointer}
+.auto-save-row strong{display:block;font-size:11px}.auto-save-row small{display:block;font-size:10px;color:#77758d;margin-top:3px}
+.switch-track{width:43px;height:24px;border-radius:99px;background:#484854;padding:3px;flex:none;transition:background .2s}
+.switch-track span{display:block;width:18px;height:18px;border-radius:50%;background:#d4d4dc;transition:transform .2s,background .2s}
+.auto-save-row input:checked+.switch-track{background:#059669;box-shadow:0 0 14px #10b98155}
+.auto-save-row input:checked+.switch-track span{transform:translateX(19px);background:#fff}
+.auto-save-row input:focus-visible+.switch-track{outline:2px solid #a78bfa;outline-offset:3px}
+.hidden{display:none!important}
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+.hero,.side-panel-card,#analysis,#view-downloads{animation:rise .48s cubic-bezier(.2,.7,.2,1) both}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+@media(max-width:1100px){.content-grid{grid-template-columns:minmax(0,1fr) 230px}.app-shell{grid-template-columns:220px minmax(0,1fr)}}
+@media(max-width:850px){.app-shell{grid-template-columns:72px minmax(0,1fr)}.sidebar{padding:22px 10px}.brand{justify-content:center;padding:2px 0 30px}.brand-name-wrap,.nav-label,.tab-label,.sidebar-card,.sidebar-foot{display:none}.tab{justify-content:center;padding:13px 8px}.nav-icon{font-size:18px}.workspace{padding:22px}.content-grid{grid-template-columns:minmax(0,1fr)}.side-panel{display:none}}
+@media(max-width:560px){.app-shell{display:block}.sidebar{position:sticky;top:0;height:auto;padding:9px 12px;border-right:0;border-bottom:1px solid var(--line);flex-direction:row;align-items:center;gap:10px}.brand{padding:0}.brand-mark{width:34px;height:34px}.side-nav{display:flex;flex:1;justify-content:flex-end;gap:4px}.tab{width:auto;padding:10px;border-radius:10px}.nav-icon{font-size:16px}.workspace{padding:20px 14px 32px}.topbar{margin-bottom:22px;align-items:flex-start}.top-actions{gap:6px}.top-btn{padding:8px;font-size:10px}.top-btn .wide-label{display:none}.hero{padding:21px 17px;border-radius:18px}.hero h1{font-size:25px}.url-form{gap:4px}.url-icon{display:none}.url-input{font-size:11px;padding-left:8px}.analyze-btn{padding:0 12px;font-size:11px}#analysis>div:first-child{align-items:flex-start;gap:13px;padding:14px!important}#thumb{width:112px;height:82px}.section-head{margin-top:22px}}
 </style>
 </head>
-<body class="min-h-screen text-zinc-100 antialiased">
-<main class="max-w-3xl mx-auto px-4 py-10">
-
-  <header class="flex items-center justify-between mb-10">
-    <h1 class="text-2xl font-bold tracking-tight">Omni<span class="text-indigo-400">Grab</span></h1>
-    <div class="flex items-center gap-2">
-      <button id="updateBtn" class="glass rounded-full px-3 py-1.5 text-sm hover:border-indigo-400/60 transition">
-        🔄 <span id="updateBtnText">Comprobar actualización</span>
-      </button>
-      <button id="creditsBtn" class="glass rounded-full px-4 py-1.5 text-sm hover:border-amber-400/60 transition">
-        ⚡ <span id="credits">0</span> créditos PRO
-      </button>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><img src="/assets/omnigrab-icon.png" alt="OmniGrab" onerror="this.style.display='none';this.parentElement.textContent='O'"></div>
+      <div class="brand-name-wrap"><div class="brand-name">Omni<span>Grab</span></div><div class="brand-sub">Media workspace</div></div>
     </div>
-  </header>
+    <div class="nav-label">Biblioteca</div>
+    <nav class="side-nav" aria-label="Navegación principal">
+      <button data-view="video" class="tab"><span class="nav-icon">◫</span><span class="tab-label">Vídeo</span></button>
+      <button data-view="audio" class="tab"><span class="nav-icon">♫</span><span class="tab-label">Audio</span></button>
+      <button data-view="downloads" class="tab"><span class="nav-icon">⇩</span><span class="tab-label">Descargas</span><span id="dlBadge" class="hidden ml-auto rounded-full bg-indigo-500 text-white text-[10px] px-1.5 py-0.5">0</span></button>
+    </nav>
+    <div class="nav-spacer"></div>
+    <div class="sidebar-card"><strong>Todo en un mismo lugar</strong><p>Gestiona tus descargas de vídeo y audio con una experiencia sencilla y ordenada.</p></div>
+    <div class="sidebar-foot">OMNIGRAB · WINDOWS DESKTOP</div>
+  </aside>
 
-  <!-- Barra de URL (sin autocompletado ni historial de enlaces) -->
-  <form id="form" autocomplete="off" class="glass rounded-2xl p-2 flex gap-2">
-    <input id="url" name="omnigrab-url" type="url" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true"
-      placeholder="Pega el enlace del vídeo…"
-      class="flex-1 bg-transparent px-4 py-3 outline-none placeholder-zinc-500">
-    <button id="analyzeBtn" class="bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 rounded-xl px-6 font-medium transition">Analizar</button>
-  </form>
-  <p id="error" class="hidden mt-3 text-sm text-red-400"></p>
-  <p id="ok" class="hidden mt-3 text-sm text-emerald-400"></p>
+  <main class="workspace">
+    <header class="topbar">
+      <div><div class="eyebrow">Tu espacio multimedia</div><div class="page-title">Panel de control</div></div>
+      <div class="top-actions">
+        <button id="updateBtn" class="top-btn">↻ <span id="updateBtnText" class="wide-label">Comprobar actualización</span></button>
+        <button id="creditsBtn" class="top-btn credits-btn">✦ <span id="credits">0</span> <span class="wide-label">créditos PRO</span></button>
+      </div>
+    </header>
 
-  <!-- Pestañas principales -->
-  <nav class="flex gap-2 mt-6 border-b border-zinc-800">
-    <button data-view="video" class="tab px-4 py-2 rounded-t-lg text-sm font-medium">🎬 Video <span class="text-zinc-500">.mp4</span></button>
-    <button data-view="audio" class="tab px-4 py-2 rounded-t-lg text-sm font-medium">🎵 Audio <span class="text-zinc-500">.mp3</span></button>
-    <button data-view="downloads" class="tab px-4 py-2 rounded-t-lg text-sm font-medium">⬇ Descargas
-      <span id="dlBadge" class="hidden ml-1 rounded-full bg-indigo-500 text-white text-[10px] px-1.5 py-0.5">0</span></button>
-  </nav>
+    <div class="content-grid">
+      <div class="main-column">
+        <section class="hero">
+          <div class="hero-kicker"><span class="live-dot"></span> Descargas sin complicaciones</div>
+          <h1>Lo que te gusta,<br>siempre a tu alcance.</h1>
+          <p class="hero-copy">Pega un enlace y deja que OmniGrab se encargue del resto.</p>
+          <form id="form" autocomplete="off" class="url-form">
+            <span class="url-icon">↗</span>
+            <input id="url" name="omnigrab-url" type="url" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" placeholder="Pega aquí el enlace del vídeo o audio…" class="url-input">
+            <button id="analyzeBtn" class="analyze-btn">Analizar enlace&nbsp; →</button>
+          </form>
+          <div class="supported"><span>Compatible con</span><span class="support-pill">YouTube</span><span class="support-pill">TikTok</span><span class="support-pill">y más</span></div>
+        </section>
+        <p id="error" class="hidden message text-red-400"></p>
+        <p id="ok" class="hidden message text-emerald-400"></p>
 
-  <p id="empty" class="text-sm text-zinc-500 text-center py-12">Pega un enlace y pulsa Analizar para ver las opciones.</p>
-
-  <!-- Análisis: vista previa + opciones (Video o Audio) -->
-  <section id="analysis" class="hidden glass rounded-2xl mt-6 overflow-hidden">
-    <div class="flex gap-4 p-4">
-      <img id="thumb" class="w-44 h-28 object-cover rounded-xl bg-zinc-800" alt="">
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 mb-1">
-          <span id="platform" class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300"></span>
-          <span id="duration" class="text-xs text-zinc-400"></span>
+        <div class="section-head">
+          <div><h2 id="contentHeading">Prepara tu descarga</h2><p id="contentSubheading">Elige el formato que necesitas.</p></div>
+          <span class="eyebrow">OMNIGRAB / 01</span>
         </div>
-        <h2 id="title" class="font-semibold leading-snug line-clamp-2"></h2>
-        <p class="text-sm text-zinc-400 mt-2">Calidad original máxima: <b id="native" class="text-zinc-200"></b></p>
-      </div>
-    </div>
 
-    <div class="border-t border-zinc-800 p-4">
-      <!-- Opciones de vídeo -->
-      <div id="pickVideo">
-        <p class="text-xs uppercase tracking-wider text-zinc-500 mb-3">🎬 Video + Audio</p>
-        <div id="optsVA" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
-        <p class="text-xs uppercase tracking-wider text-zinc-500 mt-5 mb-3">🔇 Solo video (sin audio)</p>
-        <div id="optsVO" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
-      </div>
+        <div class="content-surface">
+          <p id="empty"><span class="empty-icon">✧</span>Pega un enlace arriba y pulsa <strong>Analizar enlace</strong> para ver las opciones disponibles.</p>
 
-      <!-- Opciones de audio -->
-      <div id="pickAudio" class="hidden">
-        <p class="text-xs uppercase tracking-wider text-zinc-500 mb-3">🎵 Solo audio · MP3 con metadatos</p>
-        <div id="optsAU" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
-        <p id="abrNote" class="text-xs text-zinc-500 mt-3"></p>
-      </div>
+          <section id="analysis" class="hidden glass rounded-2xl overflow-hidden">
+            <div class="flex gap-4 p-4">
+              <img id="thumb" class="w-44 h-28 object-cover rounded-xl bg-zinc-800" alt="">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <span id="platform" class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300"></span>
+                  <span id="duration" class="text-xs text-zinc-400"></span>
+                </div>
+                <h2 id="title" class="font-semibold leading-snug line-clamp-2"></h2>
+                <p class="text-sm text-zinc-400 mt-2">Calidad original máxima: <b id="native" class="text-zinc-200"></b></p>
+              </div>
+            </div>
+            <div class="border-t border-zinc-800 p-4">
+              <div id="pickVideo">
+                <p class="text-xs uppercase tracking-wider text-zinc-500 mb-3">Vídeo + audio</p>
+                <div id="optsVA" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+                <p class="text-xs uppercase tracking-wider text-zinc-500 mt-5 mb-3">Solo vídeo · sin audio</p>
+                <div id="optsVO" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+              </div>
+              <div id="pickAudio" class="hidden">
+                <p class="text-xs uppercase tracking-wider text-zinc-500 mb-3">Solo audio · MP3 con metadatos</p>
+                <div id="optsAU" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+                <p id="abrNote" class="text-xs text-zinc-500 mt-3"></p>
+              </div>
+              <div id="lockBox" class="hidden rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4">
+                <div class="flex flex-wrap items-center gap-2 text-xs mb-3" id="lockSteps"></div>
+                <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div id="lockBar" class="h-full bg-indigo-500 transition-all" style="width:0%"></div></div>
+                <div class="flex justify-between gap-3 text-xs text-zinc-400 mt-2"><span id="lockStatus"></span><span id="lockInfo" class="text-right"></span></div>
+                <p class="text-[11px] text-zinc-500 mt-3">Las opciones se desbloquean al terminar. Puedes cambiar de sección mientras tanto.</p>
+              </div>
+              <button id="goBtn" disabled class="mt-6 w-full rounded-xl py-3 font-medium transition">Selecciona una calidad</button>
+            </div>
+          </section>
 
-      <!-- Bloqueo: mientras se descarga, las opciones se sustituyen por el progreso -->
-      <div id="lockBox" class="hidden rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4">
-        <div class="flex flex-wrap items-center gap-2 text-xs mb-3" id="lockSteps"></div>
-        <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div id="lockBar" class="h-full bg-indigo-500 transition-all" style="width:0%"></div></div>
-        <div class="flex justify-between gap-3 text-xs text-zinc-400 mt-2"><span id="lockStatus"></span><span id="lockInfo" class="text-right"></span></div>
-        <p class="text-[11px] text-zinc-500 mt-3">Las opciones se desbloquean al terminar. Mientras tanto puedes cambiar de pestaña.</p>
-      </div>
-
-      <button id="goBtn" disabled class="mt-6 w-full bg-indigo-500 hover:bg-indigo-400 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-xl py-3 font-medium transition">
-        Selecciona una calidad
-      </button>
-    </div>
-  </section>
-
-  <!-- Pestaña Descargas -->
-  <section id="view-downloads" class="hidden mt-6">
-    <div class="glass rounded-xl p-4 mb-4">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div class="min-w-0">
-          <p class="text-sm font-medium">Carpeta de descargas</p>
-          <p id="downloadFolder" class="text-xs text-zinc-500 truncate mt-1"></p>
+          <section id="view-downloads" class="hidden">
+            <div class="grid gap-3 mb-5">
+              <article class="glass rounded-xl p-4 media-folder-card">
+                <div class="flex items-center gap-3 mb-3"><div class="media-folder-icon video-icon">▶</div><div><p class="text-sm font-semibold">Carpeta de vídeo</p><p class="text-[11px] text-zinc-500">Archivos MP4</p></div></div>
+                <button id="videoFolderBtn" class="folder-path-btn" type="button"><span class="folder-path-label">Ruta de descarga por defecto</span><span id="videoFolderPath" class="folder-path-value">Cargando ruta…</span><span class="folder-path-action">Cambiar ruta ↗</span></button>
+                <label class="auto-save-row" for="videoAutoSave"><span><strong>Descarga automática sin preguntar</strong><small>Guardar directamente en esta carpeta</small></span><input id="videoAutoSave" class="sr-only" type="checkbox"><span class="switch-track"><span></span></span></label>
+              </article>
+              <article class="glass rounded-xl p-4 media-folder-card">
+                <div class="flex items-center gap-3 mb-3"><div class="media-folder-icon audio-icon">♫</div><div><p class="text-sm font-semibold">Carpeta de audio</p><p class="text-[11px] text-zinc-500">Archivos MP3</p></div></div>
+                <button id="audioFolderBtn" class="folder-path-btn" type="button"><span class="folder-path-label">Ruta de descarga por defecto</span><span id="audioFolderPath" class="folder-path-value">Cargando ruta…</span><span class="folder-path-action">Cambiar ruta ↗</span></button>
+                <label class="auto-save-row" for="audioAutoSave"><span><strong>Descarga automática sin preguntar</strong><small>Guardar directamente en esta carpeta</small></span><input id="audioAutoSave" class="sr-only" type="checkbox"><span class="switch-track"><span></span></span></label>
+              </article>
+            </div>
+            <p id="folderNote" class="hidden text-xs text-emerald-400 mb-4"></p>
+            <div id="dlList" class="space-y-3"></div>
+          </section>
         </div>
-        <div class="flex gap-2">
-          <button id="chooseFolderBtn" class="text-xs rounded-lg border border-zinc-700 px-3 py-2 hover:border-indigo-400 transition">📂 Elegir carpeta</button>
-          <button id="setDefaultFolderBtn" class="text-xs rounded-lg border border-emerald-700 px-3 py-2 text-emerald-300 hover:border-emerald-400 transition">📌 Descargar siempre aquí</button>
-        </div>
       </div>
-      <p id="folderNote" class="hidden text-xs text-emerald-400 mt-3"></p>
-    </div>
-    <div id="dlList" class="space-y-3"></div>
-  </section>
-</main>
 
+      <aside class="side-panel">
+        <section class="side-panel-card">
+          <h3 class="side-panel-title">Tu espacio de trabajo</h3>
+          <div class="status-row"><div class="status-icon">◈</div><div class="status-copy"><strong>Vídeo en alta calidad</strong><span>Escoge la resolución disponible</span></div></div>
+          <div class="status-row"><div class="status-icon">♫</div><div class="status-copy"><strong>Audio a tu medida</strong><span>MP3 con varias opciones</span></div></div>
+          <div class="status-row"><div class="status-icon">⇩</div><div class="status-copy"><strong>Descargas en segundo plano</strong><span>Cambia de sección sin interrumpirlas</span></div></div>
+        </section>
+        <section class="side-panel-card tip-card">
+          <div class="tip-mark">✦</div><h3 class="side-panel-title">Un pequeño consejo</h3>
+          <p>Las descargas activas siguen su curso aunque navegues entre Vídeo, Audio y Descargas. Puedes consultar el progreso cuando quieras.</p>
+        </section>
+        <div class="eyebrow" style="padding:3px 4px">Diseñado para hacerlo fácil.</div>
+      </aside>
+    </div>
+  </main>
+</div>
 <!-- Modal de pago simulado (solo se abre al intentar reescalar) -->
 <div id="modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
   <div class="glass rounded-2xl w-full max-w-md p-6">
@@ -155,7 +285,8 @@ const STAGE_COLOR = { queued: "text-zinc-400", downloading: "text-indigo-300", p
 const BITRATE_LABELS = { 128: "Estándar / Ligero", 192: "Alta calidad", 256: "Muy alta", 320: "Máxima calidad" };
 
 let meta = null, sel = null, credits = 0, view = "video", chosenPack = "pack_5";
-let manualDownloadFolder = null;
+let folderSettings = { video: {default_dir:"",auto_save:false}, audio: {default_dir:"",auto_save:false} };
+let pendingOutputDir = null;
 let lockJobId = null, lockUrl = null;   // bloqueo en memoria (no se guarda nada en disco ni en el navegador)
 let jobsCache = [];
 
@@ -270,7 +401,7 @@ function updateGo() {
 $("goBtn").addEventListener("click", () => {
   if (!sel) return;
   if (sel.tier === "pro" && credits < 1) return openModal();
-  startDownload();
+  requestDownloadLocation();
 });
 
 async function startDownload() {
@@ -281,13 +412,12 @@ async function startDownload() {
       mode: sel.mode,
       height: sel.height || 0,
       audio_bitrate: sel.bitrate || 192,
-      output_dir: manualDownloadFolder || null,
+      output_dir: folderSettings[sel.mode === "audio_only" ? "audio" : "video"].auto_save ? null : pendingOutputDir,
     });
     setCredits(r.credits);
     lockJobId = r.job_id; lockUrl = meta.url;
     sel = null;
-    manualDownloadFolder = null;
-    loadFolderSettings();
+    pendingOutputDir = null;
     poll();
   } catch (err) {
     if (err.status === 402) openModal();
@@ -377,49 +507,58 @@ async function poll() {
 
 async function loadFolderSettings() {
   try {
-    const s = await api("/api/settings/folders");
-    $("downloadFolder").textContent = s.default_output_dir;
-  } catch (_) {
-    $("downloadFolder").textContent = "Descargas\\OmniGrab";
-  }
-}
-
-async function chooseDownloadFolder() {
-  try {
-    let folder = null;
-    if (window.pywebview?.api?.choose_folder) {
-      folder = await window.pywebview.api.choose_folder();
+    folderSettings = await api("/api/settings/folders");
+    for (const media of ["video", "audio"]) {
+      const cfg = folderSettings[media];
+      $(media + "FolderPath").textContent = cfg.default_dir;
+      $(media + "AutoSave").checked = !!cfg.auto_save;
     }
-    if (!folder) return;
-    manualDownloadFolder = folder;
-    $("downloadFolder").textContent = folder;
-    $("folderNote").textContent = "Esta carpeta se usará en la próxima descarga.";
-    $("folderNote").classList.remove("hidden");
-  } catch (err) {
-    showErr("No se pudo abrir el selector de carpetas.");
-  }
+  } catch (err) { showErr("No se pudieron cargar las rutas: " + err.message); }
 }
 
-async function setDefaultDownloadFolder() {
-  let folder = manualDownloadFolder;
-  if (!folder) {
-    await chooseDownloadFolder();
-    folder = manualDownloadFolder;
-  }
-  if (!folder) return;
+async function chooseMediaFolder(media) {
   try {
-    const s = await api("/api/settings/folders", { default_output_dir: folder });
-    manualDownloadFolder = null;
-    $("downloadFolder").textContent = s.default_output_dir;
-    $("folderNote").textContent = "Esta carpeta se guardó como predeterminada.";
+    const folder = await window.pywebview?.api?.choose_folder(folderSettings[media]?.default_dir || "");
+    if (!folder) return;
+    const updated = await api("/api/settings/folders", { media, default_dir: folder });
+    folderSettings[media] = updated;
+    $(media + "FolderPath").textContent = updated.default_dir;
+    $("folderNote").textContent = "Ruta de " + (media === "video" ? "vídeo" : "audio") + " guardada.";
+    $("folderNote").classList.remove("hidden");
+  } catch (err) { showErr("No se pudo cambiar la ruta: " + err.message); }
+}
+
+async function setAutoSave(media, enabled) {
+  try {
+    const updated = await api("/api/settings/folders", { media, auto_save: enabled });
+    folderSettings[media] = updated;
+    $("folderNote").textContent = enabled ? "Guardado automático activado." : "Se preguntará la carpeta antes de descargar.";
     $("folderNote").classList.remove("hidden");
   } catch (err) {
+    $(media + "AutoSave").checked = !enabled;
     showErr(err.message);
   }
 }
 
-$("chooseFolderBtn").addEventListener("click", chooseDownloadFolder);
-$("setDefaultFolderBtn").addEventListener("click", setDefaultDownloadFolder);
+$("videoFolderBtn").addEventListener("click", () => chooseMediaFolder("video"));
+$("audioFolderBtn").addEventListener("click", () => chooseMediaFolder("audio"));
+$("videoAutoSave").addEventListener("change", e => setAutoSave("video", e.target.checked));
+$("audioAutoSave").addEventListener("change", e => setAutoSave("audio", e.target.checked));
+
+async function requestDownloadLocation() {
+  const media = sel.mode === "audio_only" ? "audio" : "video";
+  if (folderSettings[media].auto_save) {
+    pendingOutputDir = null;
+    startDownload();
+    return;
+  }
+  try {
+    const folder = await window.pywebview?.api?.choose_folder(folderSettings[media].default_dir);
+    if (!folder) return;
+    pendingOutputDir = folder;
+    startDownload();
+  } catch (err) { showErr("No se pudo abrir el selector de carpetas."); }
+}
 setInterval(poll, 800);
 
 /* ---------- Actualizaciones ---------- */
