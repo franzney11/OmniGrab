@@ -1,6 +1,8 @@
 name: Build OmniGrab for Windows
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
   push:
     tags:
